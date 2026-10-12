@@ -12,7 +12,13 @@ La condivisione conserva la vista, il periodo e il profilo selezionato. I filtri
 
 ## Identità e mappa interattiva
 
-Identità Liberi Network: marchio originale, titoli Bebas Neue, testi Archivo e blu profondo `#302C75` su fondo caldo. Composizione ispirata alla pagina [Chi siamo](https://dapper-youtiao-da3032.netlify.app/chi-siamo): navigazione sospesa, titoli ampi, schede con bordi netti e collegamenti tratteggiati. Il logo conserva il gradiente originale. Font e logo incorporati: nessuna richiesta a servizi esterni per caricarli. Il grafo usa archi curvi, focus sui vicini di un profilo, trascinamento dei nodi e vista immersiva. Le animazioni si disattivano con la preferenza di movimento ridotto e si sospendono fuori schermo. I colori distinguono le categorie osservate; non indicano un giudizio sui profili.
+Identità Liberi Network: marchio originale, titoli Bebas Neue, testi Archivo e blu profondo `#302C75` su fondo caldo. Composizione ispirata alla pagina [Chi siamo](https://dapper-youtiao-da3032.netlify.app/chi-siamo): navigazione sospesa, titoli ampi, schede con bordi netti e collegamenti curvi. Il logo conserva il gradiente originale. Font e logo incorporati: nessuna richiesta a servizi esterni per caricarli. Il grafo usa archi curvi, focus sui vicini di un profilo, trascinamento dei nodi e vista immersiva. Le animazioni si disattivano con la preferenza di movimento ridotto e si sospendono fuori schermo. I colori distinguono le categorie osservate; non indicano un giudizio sui profili.
+
+## Esplorazione della rete
+
+La panoramica dispone separatamente le componenti connesse del grafo: i gruppi rappresentano percorsi di collaborazione osservati, non comunità ideologiche inferite. Le etichette aumentano con lo zoom; nodi e linee rimangono sempre basati sugli stessi dati. Il focus dispone il profilo al centro e i vicini su anelli; un comando espande al secondo livello. Le posizioni esistenti restano ferme durante gli aggiornamenti, mentre Riordina ricostruisce la disposizione.
+
+Un clic su una linea apre i post che la giustificano, con direzione autore → collaboratore quando pertinente. I pulsanti Vedi post nell’elenco offrono la stessa consultazione da tastiera e mostrano entrambe le direzioni per la coppia. Il dettaglio si aggiorna anche quando un post viene rimosso dai dati ricevuti. Il pannello laterale è richiudibile e le animazioni sono limitate ai collegamenti evidenziati.
 
 ## Aggiornamenti
 
@@ -69,7 +75,7 @@ Il computer di raccolta deve essere acceso e connesso per inviare nuovi dati; do
 ## Verifiche
 
 ```powershell
-node --test tests/network.test.js
+node --test tests/network.test.js tests/graph_exploration.test.js
 python -m unittest discover -s tests -p 'test_*.py'
 ```
 

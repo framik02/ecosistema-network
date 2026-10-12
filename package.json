@@ -1,1 +1,8 @@
-{"name":"ecosistema-network","private":true,"type":"module","scripts":{"test":"node --test tests/network.test.js"}}
+{
+  "name": "ecosistema-network",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/network.test.js tests/graph_exploration.test.js"
+  }
+}
