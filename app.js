@@ -1,4 +1,4 @@
-import {collaborationNetwork,filterNetwork} from './network.js?v=34fd24ce2458d6ff';
+import {collaborationNetwork,filterNetwork} from './network.js?v=b3f8423963b2e184';
 const $=id=>document.getElementById(id), esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const num=n=>(n||0).toLocaleString('it-IT'), date=s=>s?new Date(s).toLocaleString('it-IT',{timeZone:'Europe/Rome',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'Non disponibile';
 const urlPost=id=>`https://www.instagram.com/p/${encodeURIComponent(id)}/`, urlUser=id=>`https://www.instagram.com/${encodeURIComponent(id)}/`;
@@ -240,10 +240,10 @@ async function refresh(){
     showNotice('');
     if(!cfg.collaborationsOnly)try{const analysis=await fetchJson(cfg.semantic);if(analysis.schema===1&&analysis.periods){sem=analysis;semanticError=false;}else semanticError=true;}catch{semanticError=true;}
     render();
-    if(cfg.release&&cfg.revision){try{const release=await fetchJson(cfg.release);if(release.revision&&release.revision!==cfg.revision)location.reload();}catch{/* Keep the last working view during deployment. */}}
+    if(cfg.release&&cfg.revision){try{const release=await fetchJson(cfg.release);if(release.revision&&release.revision!==cfg.revision&&sessionStorage.getItem('ecosystem-release')!==release.revision){sessionStorage.setItem('ecosystem-release',release.revision);const next=new URL(location.href);next.searchParams.set('_release',release.revision);location.replace(next.href);}}catch{/* Keep the last working view during deployment. */}}
   }catch{showNotice(data?'Connessione ai nuovi dati momentaneamente non disponibile. Restano visibili gli ultimi dati ricevuti.':'Non riesco a caricare i dati. Riproverò automaticamente.');$('fresh-title').textContent=data?'Ultimi dati ricevuti':'Dati non disponibili';$('status-dot').classList.add('stale');}
   finally{requesting=false;}
 }
-const params=new URLSearchParams(location.search);if(!cfg.collaborationsOnly&&['collab','semantic','topics'].includes(params.get('view')))state.view=params.get('view');if(['0','1','7','30'].includes(params.get('days')))state.days=+params.get('days');state.selected=params.get('profile');
+const params=new URLSearchParams(location.search);if(!cfg.collaborationsOnly&&['collab','semantic','topics'].includes(params.get('view')))state.view=params.get('view');if(['0','1','7','30'].includes(params.get('days')))state.days=+params.get('days');state.selected=params.get('profile');if(cfg.collaborationsOnly)updateUrl();
 document.querySelectorAll('[data-days]').forEach(x=>{const active=+x.dataset.days===state.days;x.classList.toggle('selected',active);x.setAttribute('aria-pressed',String(active));});
 refresh();setInterval(()=>{if(!document.hidden)refresh();},cfg.refreshMs);document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh();});
