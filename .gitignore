@@ -1,0 +1,8 @@
+.state/
+__pycache__/
+*.pyc
+*.log
+*.sqlite3
+*.sqlite3-*
+.env
+node_modules/
