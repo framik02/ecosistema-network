@@ -74,7 +74,7 @@ function renderProfiles(){
   });
   $('more-profiles').hidden=rows.length<=state.rankLimit;
 }
-function selectProfile(id){state.selected=id;focusDepth=1;hover=null;hoverEdge=null;rebuildFocus();state.feedLimit=9;state.rankLimit=12;userMoved=true;focusRequest=false;renderProfiles();renderFeed();updateGraphCaption();focusOnSelection();draw();updateUrl();}
+function selectProfile(id){state.selected=id;focusDepth=1;hover=null;hoverEdge=null;rebuildFocus();state.feedLimit=9;state.rankLimit=12;userMoved=true;focusRequest=false;syncGraphSurface();measure();renderProfiles();renderFeed();updateGraphCaption();focusOnSelection();draw();updateUrl();}
 
 function renderTopics(){
   const sp=semPeriod();$('semantic-date').textContent=sem?`Analisi del ${date(sem.generated_at)}`:'In attesa della prima analisi';
@@ -111,11 +111,56 @@ const graphPanel=document.querySelector('.network-panel');
 graphPanel.querySelector('.panel-heading').insertAdjacentHTML('beforeend','<button class="panel-toggle" id="panel-toggle" aria-expanded="true" aria-controls="profile-panel">Nascondi elenco</button><button class="immersive-button" id="immersive" aria-expanded="false"><span>⛶</span> Vista immersiva</button>');
 document.querySelector('.profile-panel').id='profile-panel';
 area.insertAdjacentHTML('beforeend','<div class="graph-caption"><span class="graph-overline">ESPLORA LE CONNESSIONI</span><strong id="graph-focus-label">Una rete, molte voci.</strong><span id="graph-focus-note"></span><div class="focus-actions"><button id="graph-overview" hidden>← Tutta la rete</button><button id="graph-depth" aria-pressed="false" hidden>Espandi al secondo livello</button></div></div><div class="graph-display-tools"><button id="graph-labels" aria-pressed="false">Aa <span>Etichette</span></button><button id="graph-motion" aria-pressed="true">◌ <span>Animazione</span></button><button id="graph-reorder">↺ <span>Riordina</span></button></div>');
-$('network-view').insertAdjacentHTML('beforeend','<dialog id="connection-dialog" aria-labelledby="connection-title"><form method="dialog"><button class="dialog-close" aria-label="Chiudi dettaglio del collegamento">×</button></form><span class="kicker">POST ALLA BASE DEL COLLEGAMENTO</span><h2 id="connection-title"></h2><p id="connection-summary"></p><div id="connection-posts"></div><button id="connection-more" class="more-button">Mostra altri post</button></dialog>');
+$('network-view').insertAdjacentHTML('beforeend','<dialog id="connection-dialog" aria-labelledby="connection-title"><form method="dialog"><button class="dialog-close" aria-label="Chiudi dettaglio del collegamento">×</button></form><span class="kicker">POST ALLA BASE DEL COLLEGAMENTO</span><h2 id="connection-title"></h2><p id="connection-summary"></p><div id="connection-posts"></div><button id="connection-more" class="more-button">Mostra altri post</button></dialog>');// The overview is a set of small multiples; the canvas explores one neighbourhood.
+let groupLimit=6,groupMarkup='',memberMarkup='';
+area.insertAdjacentHTML('beforebegin',`<section id="group-overview" class="group-overview" aria-labelledby="groups-title" hidden>
+  <div class="groups-intro"><div><span class="kicker">UNA RETE ALLA VOLTA</span><h3 id="groups-title">Scegli da dove partire.</h3><p>Apri una rete per esplorare i profili e i post che li collegano.</p></div><div class="groups-total"><strong id="groups-total"></strong><span>reti distinte</span></div></div>
+  <div id="group-grid" class="group-grid"></div><div class="groups-bottom"><span id="groups-shown" role="status"></span><button id="more-groups" class="more-button">Mostra altre reti ↓</button></div>
+  <p class="groups-method">Ogni riquadro raccoglie profili collegati dai post osservati nel periodo. Non indica un’organizzazione o un’affinità politica.</p>
+</section>`);
+document.querySelector('.focus-actions').insertAdjacentHTML('afterend','<label class="group-picker" id="group-picker" hidden><span>Esplora un altro profilo della rete</span><select id="group-members" aria-label="Profili della rete selezionata"></select></label>');
+const isGroupOverview=()=>state.view==='collab'&&!state.selected;
+function groupMembers(group){return group.ids.map(id=>overview.get(id)).filter(Boolean).sort((a,b)=>b.count-a.count||a.id.localeCompare(b.id));}
+function groupPreview(group){
+  const nodes=groupMembers(group).slice(0,9),points=new Map();
+  nodes.forEach((n,i)=>{const a=(i-1)/Math.max(1,nodes.length-1)*Math.PI*2-Math.PI/2;points.set(n.id,i?{x:180+Math.cos(a)*130,y:104+Math.sin(a)*76}:{x:180,y:104});});
+  const links=network.edges.filter(e=>points.has(e.source)&&points.has(e.target));
+  return `<svg viewBox="0 0 360 214" aria-hidden="true" focusable="false">${links.map(e=>{const s=points.get(e.source),t=points.get(e.target);return`<path d="M${s.x},${s.y} Q${(s.x+t.x)/2-(t.y-s.y)*.09},${(s.y+t.y)/2+(t.x-s.x)*.09} ${t.x},${t.y}" fill="none" stroke="#302c75" stroke-opacity=".24" stroke-width="${Math.min(3,1+Math.log1p(e.weight)*.45)}"/>`;}).join('')}${nodes.map((n,i)=>{const p=points.get(n.id),r=i?14:22;return`<g><rect x="${p.x-r+3}" y="${p.y-r+3}" width="${r*2}" height="${r*2}" rx="4" fill="#302c7514"/><rect x="${p.x-r}" y="${p.y-r}" width="${r*2}" height="${r*2}" rx="4" fill="${i?'#fcfbf9':'#302c75'}" stroke="${color(n.id)}" stroke-width="1.6"/><text x="${p.x}" y="${p.y+4}" text-anchor="middle" font-family="Archivo,sans-serif" font-size="${i?10:13}" font-weight="650" fill="${i?'#302c75':'white'}">${esc(initials(n.id))}</text></g>`;}).join('')}</svg>`;
+}
+function renderGroups(){
+  const focusId=document.activeElement?.dataset.group;
+  const html=groups.slice(0,groupLimit).map((g,i)=>{
+    const members=groupMembers(g),leader=members[0],ids=new Set(g.ids),links=network.edges.filter(e=>ids.has(e.source)&&ids.has(e.target)),posts=new Set(links.flatMap(e=>e.posts||[]));
+    return`<button class="group-card" data-group="${esc(g.id)}" data-leader="${esc(leader.id)}" aria-label="Esplora la rete con ${esc(leader.id)}, ${num(g.ids.length)} profili"><span class="group-card-top"><span>RETE ${String(i+1).padStart(2,'0')}</span><span class="group-size">${num(g.ids.length)} profili</span></span><span class="group-preview">${groupPreview(g)}<span class="preview-note">${g.ids.length>9?'Anteprima · 9 di '+num(g.ids.length)+' profili':'Tutti i profili della rete'}</span></span><span class="group-card-heading">Con @${esc(leader.id)}</span><span class="group-names">${members.slice(1,3).map(n=>'@'+esc(n.id)).join(' · ')}${members.length>3?' e altri '+num(members.length-3):''}</span><span class="group-card-bottom"><span>${num(posts.size)} post in comune</span><span>Esplora rete <b aria-hidden="true">↗</b></span></span></button>`;
+  }).join('')||'<p class="groups-empty">Nessuna rete per questi filtri. Prova un periodo più ampio o un’altra ricerca.</p>';
+  if(groupMarkup!==html){groupMarkup=html;$('group-grid').innerHTML=html;if(focusId)[...$('group-grid').querySelectorAll('[data-group]')].find(b=>b.dataset.group===focusId)?.focus({preventScroll:true});}
+  $('groups-total').textContent=num(groups.length);
+  $('groups-shown').textContent=`${num(Math.min(groupLimit,groups.length))} di ${num(groups.length)} reti · ${num(network.nodes.length)} profili nel periodo`;
+  $('more-groups').hidden=groups.length<=groupLimit;
+}
+function syncGraphSurface(){
+  const gallery=isGroupOverview();
+  $('group-overview').hidden=!gallery;area.hidden=gallery;
+  $('network-view').classList.toggle('group-mode',gallery);
+  $('profile-panel').hidden=gallery;$('panel-toggle').hidden=gallery;
+  $('legend').hidden=gallery;$('graph-footnote').hidden=gallery;
+  $('group-picker').hidden=gallery||state.view!=='collab'||!state.selected;
+  if(gallery){renderGroups();return;}
+  if(state.view==='collab'&&state.selected){
+    const group=groups.find(g=>g.ids.includes(state.selected));
+    const html=(group?groupMembers(group):[]).map(n=>`<option value="${esc(n.id)}" ${n.id===state.selected?'selected':''}>@${esc(n.id)} · ${num(n.count)} post</option>`).join('');
+    if(memberMarkup!==html){memberMarkup=html;$('group-members').innerHTML=html;}
+  }
+}
+$('group-grid').onclick=e=>{const b=e.target.closest('[data-leader]');if(b){selectProfile(b.dataset.leader);$('graph-overview').focus({preventScroll:true});}};
+$('more-groups').onclick=()=>{groupLimit+=6;renderGroups();};
+$('group-members').onchange=e=>selectProfile(e.target.value);
+
+
 $('graph-motion').setAttribute('aria-pressed',String(motionEnabled));
 area.querySelector('.graph-hint').textContent='Trascina e ingrandisci · clic su un profilo o un collegamento';
 function usableWidth(){return Math.max(180,width-(window.innerWidth>900&&!panelCollapsed?290:0));}
-function origin(){return[usableWidth()/2,height/2+20];}
+function origin(){return[usableWidth()/2,height/2+(state.view==='collab'&&state.selected?85:20)];}
 function rounded(x,y,w,h,r=3){ctx.beginPath();ctx.roundRect(x,y,w,h,r);}
 function coordinates(n){const[x,y]=origin();return{x:x+transform.x+n.x*transform.k,y:y+transform.y+n.y*transform.k};}
 function radius(n){return Math.max(state.selected?5:3.6,Math.min(30,n.r*Math.pow(transform.k,.6)));}
@@ -148,7 +193,7 @@ function rebuildFocus(preserve=false){
   let ringIndex=0;
   for(let level=1;level<=focusDepth;level++){
     const nodes=focus.nodes.filter(n=>focus.levels.get(n.id)===level).sort((a,b)=>b.count-a.count||a.id.localeCompare(b.id));
-    for(let start=0;start<nodes.length;start+=14){const ring=nodes.slice(start,start+14);const r=160+ringIndex++*150;ring.forEach((n,i)=>{const a=i/ring.length*Math.PI*2-Math.PI/2;next.set(n.id,{...overview.get(n.id),x:Math.cos(a)*r,y:Math.sin(a)*r,level});});}
+    for(let start=0;start<nodes.length;start+=14){const ring=nodes.slice(start,start+14);const r=160+ringIndex++*150;ring.forEach((n,i)=>{const a=i/ring.length*Math.PI*2-Math.PI/2;next.set(n.id,{...overview.get(n.id),x:Math.cos(a)*r*Math.max(1,Math.min(1.8,usableWidth()/Math.max(250,height-300)*.65)),y:Math.sin(a)*r,level});});}
   }
   if(same)for(const[id,n]of next){if(old.has(id)){n.x=old.get(id).x;n.y=old.get(id).y;}}
   positions=next;edges=focus.edges;
@@ -157,22 +202,23 @@ function renderGraph(){
   const context=JSON.stringify([state.view,state.days,state.relation,state.category,state.query]);
   const key=JSON.stringify([context,network.nodes.map(n=>[n.id,n.count]),network.edges.map(e=>[e.source,e.target,e.weight])]);
   $('graph-empty').hidden=!!network.nodes.length;
-  if(key!==graphKey){const changed=context!==layoutContext;if(changed){hover=null;hoverEdge=null;}layoutContext=context;graphKey=key;arrangeOverview(changed);rebuildFocus(!changed);if(changed||firstFit){userMoved=false;firstFit=false;focusOnSelection(false);}}
-  updateGraphCaption();if(activeConnection&&$('connection-dialog').open)updateConnectionEvidence();draw();scheduleFrame();
+  if(key!==graphKey){const changed=context!==layoutContext;if(changed){hover=null;hoverEdge=null;groupLimit=6;}layoutContext=context;graphKey=key;arrangeOverview(changed);rebuildFocus(!changed);if(changed||firstFit){userMoved=false;firstFit=false;focusOnSelection(false);}}
+  syncGraphSurface();updateGraphCaption();if(activeConnection&&$('connection-dialog').open)updateConnectionEvidence();draw();scheduleFrame();
 }
 function neighbours(id=state.selected){return id?new Set([id,...network.edges.filter(e=>e.source===id||e.target===id).flatMap(e=>[e.source,e.target])]):null;}
 function updateGraphCaption(){
+  $('graph-count').textContent=state.selected?`${num(positions.size)} profili visibili · ${num(edges.length)} legami`:`${num(network.nodes.length)} profili · ${num(network.edges.length)} legami`;
   $('graph-focus-label').textContent=state.selected?'@'+state.selected:state.view==='semantic'?'Idee vicine. Voci diverse.':'Una rete, molte voci.';
   $('graph-focus-note').textContent=state.selected?`${num((neighbours()?.size||1)-1)} profili direttamente collegati${focusDepth===2?' · secondo livello visibile':''} · ${state.view==='collab'?'clic su una linea per i dettagli':'seleziona un profilo per le affinità'}`:`${num(groups.length)} gruppi distinti · ingrandisci un gruppo o seleziona un profilo`;
   if(!$('graph-footnote').textContent.includes('I gruppi'))$('graph-footnote').textContent+=' I gruppi raccolgono profili connessi dai post osservati.';
-  $('graph-overview').hidden=!state.selected;$('graph-depth').hidden=!state.selected;
+  $('graph-overview').textContent=state.view==='collab'?'← Tutte le reti':'← Tutta la rete';$('graph-overview').hidden=!state.selected;$('graph-depth').hidden=!state.selected;
   $('graph-depth').setAttribute('aria-pressed',String(focusDepth===2));$('graph-depth').textContent=focusDepth===2?'Solo collegamenti diretti':'Espandi al secondo livello';
 }
 function curve(s,t){const dx=t.x-s.x,dy=t.y-s.y;return{x:(s.x+t.x)/2-dy*.09,y:(s.y+t.y)/2+dx*.09};}
 function onCurve(s,c,t,q){const a=1-q;return{x:a*a*s.x+2*a*q*c.x+q*q*t.x,y:a*a*s.y+2*a*q*c.y+q*q*t.y};}
 function edgeKey(e){return JSON.stringify([e.source,e.target]);}
 function draw(now=performance.now()){
-  if(!ctx||!graphVisible)return;ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,width,height);groupHits=[];labelHits=[];
+  if(!ctx||!graphVisible||isGroupOverview())return;ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,width,height);groupHits=[];labelHits=[];
   const projected=new Map([...positions].map(([id,n])=>[id,{...coordinates(n),node:n}]));
   const sorted=[...positions.values()].sort((a,b)=>b.count-a.count||a.id.localeCompare(b.id));
   if(!state.selected){
@@ -205,18 +251,18 @@ function draw(now=performance.now()){
   const candidates=[...sorted].sort((a,b)=>Number(b.id===state.selected||b.id===hover)-Number(a.id===state.selected||a.id===hover));
   const leaders=new Set(groups.slice(0,12).map(g=>[...g.ids].sort((a,b)=>(overview.get(b)?.count||0)-(overview.get(a)?.count||0)||a.localeCompare(b))[0]));
   const max=labelsExpanded?150:state.selected?Math.max(22,Math.round(60*transform.k)):Math.max(10,Math.round(40*transform.k));
-  for(const n of candidates){const priority=n.id===state.selected||n.id===hover,p=projected.get(n.id),r=radius(n);if(!priority&&shown>=max)continue;if(!state.selected&&!labelsExpanded&&transform.k<.4&&!leaders.has(n.id)&&!priority)continue;if(p.x<10||p.x>usableWidth()-8||p.y<110||p.y>height-75)continue;
-    const fontSize=priority?12:state.selected||transform.k>.65?11:10;ctx.font=`${priority?650:500} ${fontSize}px Archivo,sans-serif`;ctx.textAlign='left';ctx.textBaseline='middle';
+  for(const n of candidates){const priority=n.id===state.selected||n.id===hover,p=projected.get(n.id),r=radius(n);if(!priority&&shown>=max)continue;if(!state.selected&&!labelsExpanded&&transform.k<.4&&!leaders.has(n.id)&&!priority)continue;if(p.x<10||p.x>usableWidth()-8||p.y<(state.view==='collab'&&state.selected?215:110)||p.y>height-75)continue;
+    const fontSize=priority?13:state.selected||transform.k>.65?12:10;ctx.font=`${priority?650:500} ${fontSize}px Archivo,sans-serif`;ctx.textAlign='left';ctx.textBaseline='middle';
     const name=n.id.length>27?n.id.slice(0,25)+'…':n.id,w=ctx.measureText(name).width+14,h=priority?27:23;
     const placements=[{x:p.x-w/2,y:p.y+r+6},{x:p.x+r+7,y:p.y-h/2},{x:p.x-r-w-7,y:p.y-h/2},{x:p.x-w/2,y:p.y-r-h-6}];
-    const slot=placements.find(b=>b.x>7&&b.x+w<usableWidth()-7&&b.y>105&&b.y+h<height-64&&!boxes.some(a=>b.x<a.x+a.w+5&&b.x+w+5>a.x&&b.y<a.y+a.h+4&&b.y+h+4>a.y));if(!slot&&!priority)continue;const b={...(slot||placements[0]),w,h};
+    const slot=placements.find(b=>b.x>7&&b.x+w<usableWidth()-7&&b.y>(state.view==='collab'&&state.selected?210:105)&&b.y+h<height-64&&!boxes.some(a=>b.x<a.x+a.w+5&&b.x+w+5>a.x&&b.y<a.y+a.h+4&&b.y+h+4>a.y));if(!slot&&!priority)continue;const b={...(slot||placements[0]),w,h};
     boxes.push(b);shown++;rounded(b.x,b.y,w,h,3);ctx.fillStyle=priority?'#302c75':'#fcfbf9f5';ctx.fill();ctx.strokeStyle=priority?'#302c75':'#d9d5e2';ctx.lineWidth=1;ctx.stroke();ctx.fillStyle=priority?'#fff':'#34303e';ctx.fillText(name,b.x+7,b.y+h/2);labelHits.push({...b,id:n.id});
   }
 }
-function scheduleFrame(){if(framePending||!motionEnabled||!graphVisible||document.hidden||state.view==='topics'||(!state.selected&&!hover&&!hoverEdge))return;framePending=requestAnimationFrame(function tick(now){framePending=0;if(now-lastFrame>40){draw(now);lastFrame=now;}scheduleFrame();});}
+function scheduleFrame(){if(isGroupOverview()||framePending||!motionEnabled||!graphVisible||document.hidden||state.view==='topics'||(!state.selected&&!hover&&!hoverEdge))return;framePending=requestAnimationFrame(function tick(now){framePending=0;if(now-lastFrame>40){draw(now);lastFrame=now;}scheduleFrame();});}
 new IntersectionObserver(entries=>{graphVisible=entries[0].isIntersecting;if(graphVisible){draw();scheduleFrame();}},{rootMargin:'100px'}).observe(area);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)scheduleFrame();});
-function measure(){const rect=area.getBoundingClientRect();if(!rect.width||!rect.height)return;width=rect.width;height=rect.height;dpr=Math.min(2,window.devicePixelRatio||1);canvas.width=width*dpr;canvas.height=height*dpr;if(!userMoved&&positions.size)fit(false);else draw();}
+function measure(){const rect=area.getBoundingClientRect();if(!rect.width||!rect.height)return;const resized=Math.abs(width-rect.width)>30; width=rect.width;height=rect.height;if(resized&&state.selected){rebuildFocus();userMoved=false;}dpr=Math.min(2,window.devicePixelRatio||1);canvas.width=width*dpr;canvas.height=height*dpr;if(!userMoved&&positions.size)fit(false);else draw();}
 new ResizeObserver(measure).observe(area);
 function findNode(x,y){const label=labelHits.find(b=>x>=b.x&&x<=b.x+b.w&&y>=b.y&&y<=b.y+b.h);if(label)return positions.get(label.id);let hit=null,dist=Infinity;for(const n of positions.values()){const p=coordinates(n),r=radius(n),d=Math.hypot(p.x-x,p.y-y);if(Math.abs(p.x-x)<r+4&&Math.abs(p.y-y)<r+4&&d<dist){hit=n;dist=d;}}return hit;}
 function findEdge(x,y){if(state.view!=='collab')return null;let best=null,dist=7;for(const e of edges){const a=positions.get(e.source),b=positions.get(e.target);if(!a||!b)continue;const s=coordinates(a),t=coordinates(b),c=curve(s,t);let prev=s;for(let i=1;i<=24;i++){const p=onCurve(s,c,t,i/24),dx=p.x-prev.x,dy=p.y-prev.y,q=Math.max(0,Math.min(1,((x-prev.x)*dx+(y-prev.y)*dy)/(dx*dx+dy*dy||1))),d=Math.hypot(x-prev.x-q*dx,y-prev.y-q*dy);if(d<dist){best=e;dist=d;}prev=p;}}return best;}
@@ -225,7 +271,7 @@ const selection=d3.select(canvas).call(zoom).on('dblclick.zoom',null);
 selection.call(d3.drag().container(canvas).subject(e=>{const n=findNode(e.x,e.y);return n?{x:e.x,y:e.y,node:n}:null;})
  .on('start',()=>{userMoved=true;firstFit=false;focusRequest=false;})
  .on('drag',e=>{const[oX,oY]=origin();e.subject.node.x=(e.x-oX-transform.x)/transform.k;e.subject.node.y=(e.y-oY-transform.y)/transform.k;if(!state.selected)overview.set(e.subject.node.id,{...e.subject.node});draw();}));
-function camera(nodes,animate=true,cap=2){if(!nodes.length)return;const x0=Math.min(...nodes.map(n=>n.x-n.r)),x1=Math.max(...nodes.map(n=>n.x+n.r)),y0=Math.min(...nodes.map(n=>n.y-n.r)),y1=Math.max(...nodes.map(n=>n.y+n.r));const aw=Math.max(160,usableWidth()-110),ah=Math.max(160,height-240),k=Math.max(.05,Math.min(cap,.92/Math.max((x1-x0+70)/aw,(y1-y0+70)/ah)));const t=d3.zoomIdentity.translate(-(x0+x1)/2*k,-(y0+y1)/2*k).scale(k);(animate&&!reducedMotion.matches?selection.transition().duration(550).ease(d3.easeCubicInOut):selection).call(zoom.transform,t);}
+function camera(nodes,animate=true,cap=2){if(!nodes.length)return;const x0=Math.min(...nodes.map(n=>n.x-n.r)),x1=Math.max(...nodes.map(n=>n.x+n.r)),y0=Math.min(...nodes.map(n=>n.y-n.r)),y1=Math.max(...nodes.map(n=>n.y+n.r));const aw=Math.max(160,usableWidth()-110),ah=Math.max(160,height-(state.view==='collab'&&state.selected?345:240)),k=Math.max(.05,Math.min(cap,.92/Math.max((x1-x0+70)/aw,(y1-y0+70)/ah)));const t=d3.zoomIdentity.translate(-(x0+x1)/2*k,-(y0+y1)/2*k).scale(k);(animate&&!reducedMotion.matches?selection.transition().duration(550).ease(d3.easeCubicInOut):selection).call(zoom.transform,t);}
 function fit(animate=true){camera([...positions.values()],animate,state.selected?1.5:1.8);}
 function focusOnSelection(animate=true){updateGraphCaption();fit(animate);scheduleFrame();}
 canvas.addEventListener('mousemove',e=>{const n=findNode(e.offsetX,e.offsetY);hover=n?.id||null;hoverEdge=n?null:findEdge(e.offsetX,e.offsetY);canvas.classList.toggle('pointing',!!n||!!hoverEdge);$('tooltip').hidden=!n&&!hoverEdge;if(n||hoverEdge){$('tooltip').innerHTML=n?`<b>@${esc(n.id)}</b><small>${esc(profiles.get(n.id)?.category||'Fuori elenco')} · ${num(n.count)} ${state.view==='semantic'?'caption originali':'post condivisi'}</small>`:`<b>@${esc(hoverEdge.source)} ${state.relation==='direct'?'→':'↔'} @${esc(hoverEdge.target)}</b><small>${num(hoverEdge.posts?.length||hoverEdge.weight)} post · clic per consultarli</small>`;$('tooltip').style.left=Math.max(8,Math.min(e.offsetX+18,width-245))+'px';$('tooltip').style.top=Math.max(8,Math.min(e.offsetY-65,height-80))+'px';}draw();scheduleFrame();});
@@ -234,7 +280,7 @@ canvas.addEventListener('click',e=>{const n=findNode(e.offsetX,e.offsetY);if(n){
 $('fit').onclick=()=>{userMoved=true;fit();};$('zoom-in').onclick=()=>{userMoved=true;selection.transition().duration(reducedMotion.matches?0:250).call(zoom.scaleBy,1.4);};$('zoom-out').onclick=()=>{userMoved=true;selection.transition().duration(reducedMotion.matches?0:250).call(zoom.scaleBy,1/1.4);};
 $('graph-labels').onclick=()=>{labelsExpanded=!labelsExpanded;$('graph-labels').setAttribute('aria-pressed',String(labelsExpanded));draw();};
 $('graph-motion').onclick=()=>{motionEnabled=!motionEnabled;$('graph-motion').setAttribute('aria-pressed',String(motionEnabled));if(motionEnabled)scheduleFrame();else{cancelAnimationFrame(framePending);framePending=0;draw();}};
-$('graph-overview').onclick=()=>selectProfile(null);$('graph-depth').onclick=()=>{focusDepth=focusDepth===1?2:1;rebuildFocus();focusOnSelection();};
+$('graph-overview').onclick=()=>{const group=groups.find(g=>g.ids.includes(state.selected));selectProfile(null);if(isGroupOverview()&&group){const index=groups.indexOf(group);if(index>=groupLimit){groupLimit=Math.ceil((index+1)/6)*6;renderGroups();}[...$('group-grid').querySelectorAll('[data-group]')].find(b=>b.dataset.group===group.id)?.focus({preventScroll:true});}};$('graph-depth').onclick=()=>{focusDepth=focusDepth===1?2:1;rebuildFocus();focusOnSelection();};
 $('graph-reorder').onclick=()=>{arrangeOverview(true);rebuildFocus();focusOnSelection();};
 $('panel-toggle').onclick=()=>{panelCollapsed=!panelCollapsed;$('network-view').classList.toggle('panel-collapsed',panelCollapsed);$('panel-toggle').setAttribute('aria-expanded',String(!panelCollapsed));$('panel-toggle').textContent=panelCollapsed?'Mostra elenco':'Nascondi elenco';userMoved=false;measure();};
 reducedMotion.addEventListener('change',e=>{if(e.matches){motionEnabled=false;$('graph-motion').setAttribute('aria-pressed','false');cancelAnimationFrame(framePending);framePending=0;draw();}});
