@@ -1,4 +1,4 @@
-import {collaborationNetwork,filterNetwork,connectedGroups,focusNetwork,connectionPostIds} from './network.js?v=e18262a4999ed120';
+import {collaborationNetwork,filterNetwork,connectedGroups,focusNetwork,connectionPostIds} from './network.js?v=39e84f6e5ed3fb9a';
 const $=id=>document.getElementById(id), esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const num=n=>(n||0).toLocaleString('it-IT'), date=s=>s?new Date(s).toLocaleString('it-IT',{timeZone:'Europe/Rome',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'Non disponibile';
 const urlPost=id=>`https://www.instagram.com/p/${encodeURIComponent(id)}/`, urlUser=id=>`https://www.instagram.com/${encodeURIComponent(id)}/`;
@@ -163,8 +163,8 @@ function renderGraph(){
 function neighbours(id=state.selected){return id?new Set([id,...network.edges.filter(e=>e.source===id||e.target===id).flatMap(e=>[e.source,e.target])]):null;}
 function updateGraphCaption(){
   $('graph-focus-label').textContent=state.selected?'@'+state.selected:state.view==='semantic'?'Idee vicine. Voci diverse.':'Una rete, molte voci.';
-  $('graph-focus-note').textContent=state.selected?`${num((neighbours()?.size||1)-1)} profili direttamente collegati${focusDepth===2?' · secondo livello visibile':''} · ${state.view==='collab'?'clic su una linea per i dettagli':'seleziona un profilo per le affinità'}`:`${num(groups.length)} reti collegate · ingrandisci un gruppo o seleziona un profilo`;
-  if(!$('graph-footnote').textContent.includes('I gruppi'))$('graph-footnote').textContent+=' I gruppi delimitano reti collegate, non categorie politiche.';
+  $('graph-focus-note').textContent=state.selected?`${num((neighbours()?.size||1)-1)} profili direttamente collegati${focusDepth===2?' · secondo livello visibile':''} · ${state.view==='collab'?'clic su una linea per i dettagli':'seleziona un profilo per le affinità'}`:`${num(groups.length)} gruppi distinti · ingrandisci un gruppo o seleziona un profilo`;
+  if(!$('graph-footnote').textContent.includes('I gruppi'))$('graph-footnote').textContent+=' I gruppi raccolgono profili connessi dai post osservati.';
   $('graph-overview').hidden=!state.selected;$('graph-depth').hidden=!state.selected;
   $('graph-depth').setAttribute('aria-pressed',String(focusDepth===2));$('graph-depth').textContent=focusDepth===2?'Solo collegamenti diretti':'Espandi al secondo livello';
 }
