@@ -83,4 +83,4 @@ I test coprono direzione dei legami, coautori, aggiornamento di un post già esi
 
 ### Mappa completa delle collaborazioni
 
-La vista iniziale mostra tutti i profili e tutti i collegamenti del periodo in un unico grafo. Le componenti scollegate sono distribuite nello spazio disponibile, senza riquadri separati. L’elenco laterale è apribile; selezionare un profilo evidenzia i suoi legami mantenendo l’intero grafo. Le etichette emergono con lo zoom e il passaggio del puntatore. Gli aggiornamenti conservano le posizioni; «Riordina» ridistribuisce la mappa quando serve.
+La vista iniziale mostra tutti i profili e tutti i collegamenti del periodo in un unico grafo. I profili sono rappresentati da quadratini con iniziali, in una disposizione organica a forze con spazio tra i nodi, senza riquadri o file separate. L’elenco laterale è apribile; selezionare un profilo evidenzia i suoi legami mantenendo l’intero grafo. Le etichette emergono con lo zoom e il passaggio del puntatore. Gli aggiornamenti conservano le posizioni; «Riordina» ridistribuisce la mappa quando serve.
