@@ -17,3 +17,30 @@ export function filterNetwork(graph,category,profiles,query=''){
   for(const id of matched)keep.add(id);
   return{nodes:graph.nodes.filter(n=>keep.has(n.id)),edges};
 }
+
+// Connected components describe observed paths, not inferred political communities.
+export function connectedGroups(graph){
+  const adjacency=new Map(graph.nodes.map(n=>[n.id,new Set()]));
+  for(const e of graph.edges){if(adjacency.has(e.source)&&adjacency.has(e.target)){adjacency.get(e.source).add(e.target);adjacency.get(e.target).add(e.source);}}
+  const seen=new Set(),groups=[];
+  for(const id of [...adjacency.keys()].sort()){
+    if(seen.has(id))continue;const ids=[],queue=[id];seen.add(id);
+    for(let i=0;i<queue.length;i++){const current=queue[i];ids.push(current);for(const other of [...adjacency.get(current)].sort()){if(!seen.has(other)){seen.add(other);queue.push(other);}}}
+    ids.sort();groups.push({id:ids[0],ids});
+  }
+  return groups.sort((a,b)=>b.ids.length-a.ids.length||a.id.localeCompare(b.id));
+}
+
+export function focusNetwork(graph,id,depth=1){
+  const levels=new Map();if(!graph.nodes.some(n=>n.id===id))return{nodes:[],edges:[],levels};
+  levels.set(id,0);
+  for(let level=0;level<depth;level++)for(const e of graph.edges){
+    if(levels.get(e.source)===level&&!levels.has(e.target))levels.set(e.target,level+1);
+    if(levels.get(e.target)===level&&!levels.has(e.source))levels.set(e.source,level+1);
+  }
+  return{nodes:graph.nodes.filter(n=>levels.has(n.id)),edges:graph.edges.filter(e=>levels.has(e.source)&&levels.has(e.target)),levels};
+}
+
+export function connectionPostIds(graph,source,target,directed=true){
+  return [...new Set(graph.edges.filter(e=>(e.source===source&&e.target===target)||(!directed&&e.source===target&&e.target===source)).flatMap(e=>e.posts||[]))];
+}
