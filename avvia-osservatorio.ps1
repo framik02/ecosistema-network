@@ -20,6 +20,6 @@ if (-not (Get-NetTCPConnection -LocalPort 8766 -State Listen -ErrorAction Silent
     Start-Worker 'server' 'serve.py' ($dbArgs + @('--port', '8766'))
 }
 Start-Worker 'semantic' 'semantic.py' ($dbArgs + @('--loop', '--interval', '120'))
-if (-not $SkipPublisher) {
+if (-not $SkipPublisher -and $configuration.publish) {
     Start-Worker 'publisher' 'publish.py' ($dbArgs + @('--repo', ('"' + $configuration.dataRepo + '"'), '--loop', '--interval', '120'))
 }
