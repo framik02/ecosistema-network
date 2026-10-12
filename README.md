@@ -84,3 +84,9 @@ I test coprono direzione dei legami, coautori, aggiornamento di un post già esi
 ### Mappa completa delle collaborazioni
 
 La vista iniziale mostra tutti i profili e tutti i collegamenti del periodo in un unico grafo. I profili sono rappresentati da quadratini con iniziali, in una disposizione organica a forze con spazio tra i nodi, senza riquadri o file separate. L’elenco laterale è apribile; selezionare un profilo evidenzia i suoi legami mantenendo l’intero grafo. Le etichette emergono con lo zoom e il passaggio del puntatore. Gli aggiornamenti conservano le posizioni; «Riordina» ridistribuisce la mappa quando serve.
+
+### Gerarchia e novità
+
+Dimensioni dei quadratini e spessore delle linee crescono con i post osservati. La barra «Più attivi» mantiene cinque nomi accessibili anche nella panoramica; hover e selezione evidenziano solo i legami del profilo mantenendo l’intero grafo. «Panoramica completa» rimuove la selezione e ripristina l’inquadratura, mantenendo i filtri del periodo.
+
+«Novità» confronta l’archivio completo con un checkpoint locale della visita precedente: post, profili e legami diretti aggiunti. Distingue la data di pubblicazione dall’arrivo nella raccolta; i cambi ai coautori su post esistenti possono produrre nuovi legami senza nuovi post. La prima visita stabilisce il confronto senza dichiarare tutto nuovo. Si salvano solo identificativi e data in localStorage, separati per fonte dati; nessuna caption e nessun tracciamento degli accessi. Con storage non disponibile il confronto continua in memoria durante la visita. «Segna come visto» aggiorna esplicitamente il riferimento.

@@ -44,3 +44,20 @@ export function focusNetwork(graph,id,depth=1){
 export function connectionPostIds(graph,source,target,directed=true){
   return [...new Set(graph.edges.filter(e=>(e.source===source&&e.target===target)||(!directed&&e.source===target&&e.target===source)).flatMap(e=>e.posts||[]))];
 }
+
+// Checkpoints contain collaboration identifiers only, never captions or visitor IDs.
+export function collaborationCheckpoint(posts,seenAt=new Date().toISOString()){
+  const shared=posts.filter(p=>new Set(p.authors).size>1),graph=collaborationNetwork(shared);
+  return {version:1,seenAt,posts:[...new Set(shared.map(p=>p.id))].sort(),profiles:graph.nodes.map(n=>n.id).sort(),links:graph.edges.map(e=>JSON.stringify([e.source,e.target])).sort()};
+}
+export function validCheckpoint(value){
+  return !!value&&value.version===1&&Number.isFinite(Date.parse(value.seenAt))&&['posts','profiles','links'].every(k=>Array.isArray(value[k])&&value[k].every(x=>typeof x==='string'))&&value.links.every(x=>{try{const p=JSON.parse(x);return Array.isArray(p)&&p.length===2&&p.every(id=>typeof id==='string');}catch{return false;}});
+}
+export function collaborationChanges(posts,baseline,now=new Date().toISOString()){
+  const current=collaborationCheckpoint(posts,now),empty={current,firstVisit:true,posts:[],profiles:[],links:[],published:[],earlier:[],undated:[]};
+  if(!validCheckpoint(baseline))return empty;
+  const knownPosts=new Set(baseline.posts),knownProfiles=new Set(baseline.profiles),knownLinks=new Set(baseline.links);
+  const fresh=[...new Map(posts.filter(p=>new Set(p.authors).size>1&&!knownPosts.has(p.id)).map(p=>[p.id,p])).values()];
+  const since=Date.parse(baseline.seenAt),until=Date.parse(now);
+  return {current,firstVisit:false,posts:fresh,profiles:current.profiles.filter(id=>!knownProfiles.has(id)),links:current.links.filter(key=>!knownLinks.has(key)).map(key=>JSON.parse(key)),published:fresh.filter(p=>Date.parse(p.published)>=since&&Date.parse(p.published)<=until),earlier:fresh.filter(p=>Date.parse(p.published)<since),undated:fresh.filter(p=>!Number.isFinite(Date.parse(p.published))||Date.parse(p.published)>until)};
+}
