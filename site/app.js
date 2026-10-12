@@ -39,7 +39,8 @@ function render(){
   if(semantic){const connected=new Set(network.edges.flatMap(e=>[e.source,e.target]));network.nodes=network.nodes.filter(n=>connected.has(n.id));}
   if(state.selected&&!network.nodes.some(n=>n.id===state.selected))state.selected=null;
   const displayedIds=new Set(network.nodes.map(n=>n.id));
-  const selectedPosts=collabs.filter(p=>p.authors.some(a=>displayedIds.has(a)));
+  const q=state.query.toLowerCase().replace(/^@/,'');
+  const selectedPosts=collabs.filter(p=>(!state.category||p.authors.some(a=>profiles.get(a)?.category===state.category))&&(!q||p.authors.some(a=>a.includes(q))));
   const external=network.nodes.filter(n=>!profiles.get(n.id)?.monitored).length;
   $('metrics').innerHTML=topics?metric('Caption analizzate',sp?.caption_count,'Nel periodo selezionato','≋')+metric('Temi emersi',sp?.topics?.length,'Raggruppamenti automatici','◌')+metric('Cornici suggerite',sp?.narratives?.length,'Ipotesi da verificare nei testi','↗')+metric('Profili confrontabili',sp?.nodes?.length,'Con almeno 2 caption originali','◎'):semantic?metric('Profili connessi',network.nodes.length,'Con affinità sopra la soglia','◎')+metric('Affinità individuate',network.edges.length,'Connessioni visibili nella mappa','↗')+metric('Caption analizzate',sp?.caption_count,'Testi del periodo, non solo collab','≋')+metric('Soglia di similarità',state.threshold.toFixed(2).replace('.',','),'Cosine similarity, non probabilità','≈'):metric('Post in collaborazione',selectedPosts.length,'Contenuti condivisi nel periodo','↗')+metric('Profili nella rete',network.nodes.length,'Autori e collaboratori osservati','◎')+metric('Connessioni',network.edges.length,state.relation==='direct'?'Relazioni autore → collaboratore':'Coppie presenti nello stesso post','⌘')+metric('Profili fuori elenco',external,'Emersi attraverso collaborazioni','＋');
   $('graph-count').textContent=`${num(network.nodes.length)} profili · ${num(network.edges.length)} legami`;

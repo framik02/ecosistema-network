@@ -18,7 +18,7 @@ os.environ.setdefault('TOKENIZERS_PARALLELISM', 'false')
 os.environ.setdefault('HF_HUB_OFFLINE', '1')
 import numpy as np
 from sklearn.cluster import KMeans
-from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.feature_extraction.text import CountVectorizer
 from snapshot import read_snapshot, atomic_json
 
 MODEL = 'sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2'
@@ -33,6 +33,7 @@ FRAMES = [
     ('Mobilitazione e partecipazione', 'Invito a partecipare, manifestare e mobilitarsi, scendere in piazza, firmare una petizione o votare per il cambiamento.'),
     ('Denuncia di una crisi', 'Allarme e denuncia di una crisi: emergenza economica, sociale o ambientale, situazione grave, conseguenze e urgenza di intervenire.'),
 ]
+STOP.update('sua sue suo suoi degli delle nella nello negli questo questa questi queste quello quella quelli quelle quel qualche altro altra altre altri più poco tanti tante perché perche the and for with that this from not are was were you your our they their have has will can all about what when who how una un uno abbiamo avevano avrebbero avrebbe potrebbe potrebbero essere stato stata stati state viene vengono aveva erano hanno sempre mai già prima dopo ieri domani settimana settimane mese mesi ottobre settembre agosto gennaio febbraio marzo aprile maggio giugno luglio novembre dicembre lunedì martedì mercoledì giovedì venerdì sabato domenica oggi ieri articolo completo completo continua lettura canale canali whatsapp telegram youtube tiktok facebook social contenuto contenuti scritto scopri informazioni info iscriviti trovate trovare trovate aspettiamo aspetta vediamo ricordare racconta scopriamo redazione didascalia dioggi laverita quartarepubblica sky erclab'.split())
 
 def normalize(x):
     return x / np.maximum(np.linalg.norm(x, axis=-1, keepdims=True), 1e-12)
@@ -134,8 +135,12 @@ class Engine:
             text_labels={texts[i]:labels[i] for i in unique}
             all_labels=np.array([text_labels[t] for t in texts])
             try:
-                tf=TfidfVectorizer(stop_words=sorted(STOP),ngram_range=(1,2),min_df=1,max_df=.9,token_pattern=r'(?u)\b[^\W\d_]{3,}\b')
+                tf=CountVectorizer(stop_words=sorted(STOP),ngram_range=(1,2),min_df=1,max_df=.9,token_pattern=r'(?u)\b[^\W\d_]{3,}\b')
                 terms=tf.fit_transform(texts); words=np.array(tf.get_feature_names_out())
+                # Class TF-IDF favours the vocabulary distinctive to a cluster,
+                # rather than words and boilerplate frequent across the corpus.
+                totals=np.asarray(terms.sum(axis=0)).ravel()
+                inverse=np.log1p(float(totals.sum())/k/np.maximum(totals,1))
             except ValueError:
                 terms=None
             for label in range(k):
@@ -143,7 +148,7 @@ class Engine:
                 if not len(ix): continue
                 keyword=[]
                 if terms is not None:
-                    weights=np.asarray(terms[ix].mean(axis=0)).ravel()
+                    weights=np.asarray(terms[ix].sum(axis=0)).ravel()*inverse
                     for word in words[np.argsort(-weights)[:30]]:
                         if not any(word in w or w in word for w in keyword): keyword.append(str(word))
                         if len(keyword)==4: break
@@ -173,7 +178,7 @@ def main():
     while True:
         try:
             snapshot=read_snapshot(args.db)
-            fingerprint=hashlib.sha256(json.dumps(snapshot,sort_keys=True).encode()).hexdigest()
+            fingerprint=hashlib.sha256(json.dumps(snapshot,sort_keys=True).encode()).hexdigest()+':'+str(int(time.time()//300))
             if fingerprint != last:
                 result=engine.analyze(snapshot)
                 atomic_json(state/'semantic.json',result)
