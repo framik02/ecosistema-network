@@ -2,7 +2,7 @@ import {collaborationNetwork,filterNetwork} from './network.js';
 const $=id=>document.getElementById(id), esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const num=n=>(n||0).toLocaleString('it-IT'), date=s=>s?new Date(s).toLocaleString('it-IT',{timeZone:'Europe/Rome',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'Non disponibile';
 const urlPost=id=>`https://www.instagram.com/p/${encodeURIComponent(id)}/`, urlUser=id=>`https://www.instagram.com/${encodeURIComponent(id)}/`;
-const COLORS={'Politico':'#DC058C','Partito Politico':'#7B2D8E','Giornalista':'#C08A2E','Media tradizionali':'#2F5D8C','New Media':'#2E8F8B','Content Creator':'#9768B0','Altro':'#6F7479','Fuori elenco':'#9AA0A6'};
+const COLORS={'Politico':'#3454b4','Partito Politico':'#6554a4','Giornalista':'#C08A2E','Media tradizionali':'#2F5D8C','New Media':'#2E8F8B','Content Creator':'#8097cc','Altro':'#6F7479','Fuori elenco':'#9AA0A6'};
 const cfg=window.ECOSYSTEM_CONFIG||{snapshot:'/snapshot',semantic:'/semantic',refreshMs:10000};
 const state={view:'collab',days:1,relation:'direct',threshold:.65,category:'',query:'',selected:null,topic:null,topicLabel:'',feedLimit:9,rankLimit:12};
 let data=null,sem=null,profiles=new Map(),postIndex=new Map(),network={nodes:[],edges:[]},periodPosts=[],requesting=false,semanticError=false,graphKey='',firstFit=true;
@@ -154,7 +154,7 @@ function draw(now=performance.now()){
   if(!ctx||!graphVisible)return;
   ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,width,height);
   // Very fine navigation grid, fixed to the camera, with no decorative fake nodes.
-  const step=52* Math.max(.65,Math.min(1.3,transform.k));ctx.strokeStyle='#7b2d8e07';ctx.lineWidth=1;
+  const step=52* Math.max(.65,Math.min(1.3,transform.k));ctx.strokeStyle='#5465a407';ctx.lineWidth=1;
   for(let x=(transform.x%step+step)%step;x<width;x+=step){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,height);ctx.stroke();}
   for(let y=(transform.y%step+step)%step;y<height;y+=step){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(width,y);ctx.stroke();}
   const focusId=state.selected||hover,focus=neighbours(focusId),direct=state.view==='collab'&&state.relation==='direct';
@@ -190,7 +190,7 @@ function draw(now=performance.now()){
     const p=projected.get(n.id),r=Math.max(4.2,Math.min(48,n.r*Math.pow(transform.k,.55)));if(p.x<10||p.x>usableWidth()-10||p.y<80||p.y>height-65)continue;
     ctx.font=`${priority?650:450} ${priority?12:10}px 'Archivo',sans-serif`;const label=n.id,labelWidth=ctx.measureText(label).width,w=labelWidth+18,h=priority?28:23,x=p.x-w/2,y=p.y+r+8;
     const box={x,y,w,h};if(!priority&&boxes.some(b=>box.x<b.x+b.w+8&&box.x+box.w+8>b.x&&box.y<b.y+b.h+5&&box.y+box.h+5>b.y))continue;if(x<8||x+w>usableWidth()-8)continue;boxes.push(box);shown++;
-    rounded(x,y,w,h,6);ctx.fillStyle=priority?'#dc058c':'#fffffff2';ctx.fill();ctx.strokeStyle=alpha(glow(n.id),priority?.55:.20);ctx.lineWidth=1;ctx.stroke();ctx.fillStyle=priority?'#ffffff':'#2c2c2c';ctx.fillText(label,x+9,y+h/2);
+    rounded(x,y,w,h,6);ctx.fillStyle=priority?'#3454b4':'#fffffff2';ctx.fill();ctx.strokeStyle=alpha(glow(n.id),priority?.55:.20);ctx.lineWidth=1;ctx.stroke();ctx.fillStyle=priority?'#ffffff':'#2c2c2c';ctx.fillText(label,x+9,y+h/2);
   }
 }
 function scheduleFrame(){if(framePending||!motionEnabled||!graphVisible||document.hidden||state.view==='topics')return;framePending=requestAnimationFrame(function tick(now){framePending=0;if(now-lastFrame>40){draw(now);lastFrame=now;}scheduleFrame();});}

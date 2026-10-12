@@ -12,7 +12,7 @@ La condivisione conserva la vista, il periodo e il profilo selezionato. I filtri
 
 ## Identità e mappa interattiva
 
-Identità Liberi Network: marchio originale, titoli Bebas Neue, testi Archivo e magenta `#DC058C` su fondo bianco. Font e logo incorporati: nessuna richiesta a servizi esterni per caricarli. Il grafo usa archi curvi, focus sui vicini di un profilo, trascinamento dei nodi e vista immersiva. Le animazioni si disattivano con la preferenza di movimento ridotto e si sospendono fuori schermo. I colori distinguono le categorie osservate; non indicano un giudizio sui profili.
+Identità Liberi Network: marchio originale, titoli Bebas Neue, testi Archivo e blu `#3454B4` su fondo bianco, con accenti azzurri e il gradiente originale del logo. Font e logo incorporati: nessuna richiesta a servizi esterni per caricarli. Il grafo usa archi curvi, focus sui vicini di un profilo, trascinamento dei nodi e vista immersiva. Le animazioni si disattivano con la preferenza di movimento ridotto e si sospendono fuori schermo. I colori distinguono le categorie osservate; non indicano un giudizio sui profili.
 
 ## Aggiornamenti
 
