@@ -10,6 +10,10 @@ Osservatorio delle collaborazioni Instagram, delle caption e delle affinità sem
 
 La condivisione conserva la vista, il periodo e il profilo selezionato. I filtri per categoria mantengono i vicini di altre categorie per non perdere il contesto. I conteggi si riferiscono al campione osservato, non all'intero Instagram.
 
+## Identità e mappa interattiva
+
+Identità Liberi Network: marchio originale, titoli Bebas Neue, testi Archivo e magenta `#DC058C` su fondo bianco. Font e logo incorporati: nessuna richiesta a servizi esterni per caricarli. Il grafo usa archi curvi, focus sui vicini di un profilo, trascinamento dei nodi e vista immersiva. Le animazioni si disattivano con la preferenza di movimento ridotto e si sospendono fuori schermo. I colori distinguono le categorie osservate; non indicano un giudizio sui profili.
+
 ## Aggiornamenti
 
 `bridge/serve.py` legge SQLite in sola lettura a ogni richiesta. La pagina locale richiede nuovi dati ogni 10 secondi. `bridge/semantic.py --loop` controlla il database ogni 120 secondi dopo ogni elaborazione, riusa gli embedding in cache e rigenera le analisi quando i dati cambiano. Il primo passaggio è più lungo dei successivi.
