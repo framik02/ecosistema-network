@@ -2,7 +2,7 @@ import {collaborationNetwork,filterNetwork} from './network.js';
 const $=id=>document.getElementById(id), esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const num=n=>(n||0).toLocaleString('it-IT'), date=s=>s?new Date(s).toLocaleString('it-IT',{timeZone:'Europe/Rome',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'Non disponibile';
 const urlPost=id=>`https://www.instagram.com/p/${encodeURIComponent(id)}/`, urlUser=id=>`https://www.instagram.com/${encodeURIComponent(id)}/`;
-const COLORS={'Politico':'#3454b4','Partito Politico':'#6554a4','Giornalista':'#C08A2E','Media tradizionali':'#2F5D8C','New Media':'#2E8F8B','Content Creator':'#8097cc','Altro':'#6F7479','Fuori elenco':'#9AA0A6'};
+const COLORS={'Politico':'#302c75','Partito Politico':'#6554a4','Giornalista':'#C08A2E','Media tradizionali':'#2F5D8C','New Media':'#2E8F8B','Content Creator':'#8097cc','Altro':'#6F7479','Fuori elenco':'#9AA0A6'};
 const cfg=window.ECOSYSTEM_CONFIG||{snapshot:'/snapshot',semantic:'/semantic',refreshMs:10000};
 const state={view:'collab',days:1,relation:'direct',threshold:.65,category:'',query:'',selected:null,topic:null,topicLabel:'',feedLimit:9,rankLimit:12};
 let data=null,sem=null,profiles=new Map(),postIndex=new Map(),network={nodes:[],edges:[]},periodPosts=[],requesting=false,semanticError=false,graphKey='',firstFit=true;
@@ -96,7 +96,7 @@ function renderFeed(){
   $('more-posts').hidden=posts.length<=state.feedLimit;
 }
 
-// Immersive canvas: curves and lighting encode the existing graph, never extra links.
+// Interactive network: outlined tiles and curved wires encode only observed links.
 const canvas=$('graph'),area=$('graph-area'),ctx=canvas.getContext('2d');
 let width=1,height=1,dpr=1,positions=new Map(),edges=[],transform=d3.zoomIdentity,hover=null,userMoved=false;
 let graphVisible=true,framePending=0,lastFrame=0,labelsExpanded=false,immersive=false,focusRequest=false;
@@ -160,16 +160,14 @@ function draw(now=performance.now()){
   const focusId=state.selected||hover,focus=neighbours(focusId),direct=state.view==='collab'&&state.relation==='direct';
   const projected=new Map([...positions.values()].map(n=>[n.id,{...coordinates(n),node:n}]));
   const sorted=[...positions.values()].sort((a,b)=>b.count-a.count),important=new Set(sorted.slice(0,22).map(n=>n.id));
-  // Soft light behind the true high-activity nodes gives depth without changing the data.
-  for(const n of sorted.slice(0,18)){if(focus&&!focus.has(n.id))continue;const p=projected.get(n.id),r=Math.max(25,Math.min(100,n.r*transform.k*5));const halo=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,r);halo.addColorStop(0,alpha(glow(n.id),focus?.09:.08));halo.addColorStop(1,alpha(glow(n.id),0));ctx.fillStyle=halo;ctx.beginPath();ctx.arc(p.x,p.y,r,0,Math.PI*2);ctx.fill();}
   let animated=0;
   for(const e of edges){const s=projected.get(idOf(e.source)),t=projected.get(idOf(e.target));if(!s||!t)continue;
     const active=!focus||s.node.id===focusId||t.node.id===focusId,c=curve(s,t),strong=focus&&active;
     const lineWidth=Math.min(4.2,.6+Math.log1p(e.weight)*(state.view==='semantic'?1.5:.75));
     ctx.lineWidth=strong?lineWidth+1:lineWidth;ctx.lineCap='round';
-    if(strong){const gradient=ctx.createLinearGradient(s.x,s.y,t.x,t.y);gradient.addColorStop(0,alpha(glow(s.node.id),.92));gradient.addColorStop(1,alpha(glow(t.node.id),.65));ctx.strokeStyle=gradient;ctx.shadowColor=glow(s.node.id);ctx.shadowBlur=10;}
+    if(strong){const gradient=ctx.createLinearGradient(s.x,s.y,t.x,t.y);gradient.addColorStop(0,alpha(glow(s.node.id),.92));gradient.addColorStop(1,alpha(glow(t.node.id),.65));ctx.strokeStyle=gradient;ctx.shadowColor=glow(s.node.id);ctx.shadowBlur=0;}
     else{ctx.strokeStyle=active?alpha(glow(s.node.id),.43):'#9aa0a60c';ctx.shadowBlur=0;}
-    ctx.beginPath();ctx.moveTo(s.x,s.y);ctx.quadraticCurveTo(c.x,c.y,t.x,t.y);ctx.stroke();ctx.shadowBlur=0;
+    ctx.setLineDash(direct&&active?[7,4]:[]);ctx.lineDashOffset=motionEnabled?-now/300:0;ctx.beginPath();ctx.moveTo(s.x,s.y);ctx.quadraticCurveTo(c.x,c.y,t.x,t.y);ctx.stroke();ctx.setLineDash([]);ctx.lineDashOffset=0;ctx.shadowBlur=0;
     if(direct&&active){const tip=onCurve(s,c,t,.90),before=onCurve(s,c,t,.85),angle=Math.atan2(tip.y-before.y,tip.x-before.x),size=strong?5:3;ctx.fillStyle=alpha(glow(t.node.id),strong?.9:.55);ctx.beginPath();ctx.moveTo(tip.x,tip.y);ctx.lineTo(tip.x-size*Math.cos(angle-.5),tip.y-size*Math.sin(angle-.5));ctx.lineTo(tip.x-size*Math.cos(angle+.5),tip.y-size*Math.sin(angle+.5));ctx.closePath();ctx.fill();}
     if(direct&&active&&motionEnabled&&animated<65&&(strong||important.has(s.node.id))){animated++;const q=(now/11000+e.phase)%1,p=onCurve(s,c,t,q);ctx.fillStyle=alpha(glow(s.node.id),strong?.9:.55);ctx.shadowColor=glow(s.node.id);ctx.shadowBlur=7;ctx.beginPath();ctx.arc(p.x,p.y,strong?2.1:1.25,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;}
   }
@@ -177,10 +175,9 @@ function draw(now=performance.now()){
     const p=projected.get(n.id),active=!focus||focus.has(n.id),selected=n.id===state.selected,hovered=n.id===hover;
     const r=Math.max(4.2,Math.min(48,n.r*Math.pow(transform.k,.55))),col=glow(n.id);if(p.x<-70||p.x>width+70||p.y<-70||p.y>height+70)continue;
     ctx.globalAlpha=active?1:.16;
-    if(active&&(important.has(n.id)||selected||hovered)){ctx.shadowBlur=selected?20:8;ctx.shadowColor=alpha(col,.28);}
-    const fill=ctx.createRadialGradient(p.x-r*.3,p.y-r*.4,0,p.x,p.y,r);fill.addColorStop(0,alpha(col,.22));fill.addColorStop(.45,alpha(col,.13));fill.addColorStop(1,alpha(col,.06));
-    ctx.beginPath();ctx.arc(p.x,p.y,r,0,Math.PI*2);ctx.fillStyle=fill;ctx.fill();ctx.strokeStyle=alpha(col,selected||hovered?1:.80);ctx.lineWidth=selected?2.2:1.2;ctx.stroke();ctx.shadowBlur=0;
-    if(selected||hovered){const pulse=motionEnabled&&selected?Math.sin(now/800)*1.4:0;ctx.beginPath();ctx.arc(p.x,p.y,r+5+pulse,0,Math.PI*2);ctx.strokeStyle=alpha(col,.35);ctx.lineWidth=1;ctx.stroke();ctx.beginPath();ctx.arc(p.x,p.y,r+10+pulse,0,Math.PI*2);ctx.strokeStyle=alpha(col,.12);ctx.stroke();}
+    if(selected||hovered){ctx.fillStyle=alpha(col,.65);ctx.fillRect(p.x-r+3,p.y-r+3,r*2,r*2);}
+    rounded(p.x-r,p.y-r,r*2,r*2,1);ctx.fillStyle=selected?'#fcfbf9':active?'#f2efeb':'#f2efeb';ctx.fill();ctx.strokeStyle=alpha(col,selected||hovered?1:.85);ctx.lineWidth=selected?2.2:1.3;ctx.stroke();
+    if(selected||hovered){ctx.strokeStyle=alpha(col,.28);ctx.lineWidth=1;ctx.strokeRect(p.x-r-4,p.y-r-4,r*2+8,r*2+8);}
     if(r>=10){ctx.textAlign='center';ctx.textBaseline='middle';ctx.font=`650 ${Math.min(14,Math.max(8,r*.66))}px 'Archivo',sans-serif`;ctx.fillStyle=active?'#1a1a1a':'#737373';ctx.fillText(initials(n.id),p.x,p.y+.5);}
     else{ctx.fillStyle=alpha(col,.85);ctx.beginPath();ctx.arc(p.x,p.y,Math.max(1,r*.32),0,Math.PI*2);ctx.fill();}
   }
@@ -190,7 +187,7 @@ function draw(now=performance.now()){
     const p=projected.get(n.id),r=Math.max(4.2,Math.min(48,n.r*Math.pow(transform.k,.55)));if(p.x<10||p.x>usableWidth()-10||p.y<80||p.y>height-65)continue;
     ctx.font=`${priority?650:450} ${priority?12:10}px 'Archivo',sans-serif`;const label=n.id,labelWidth=ctx.measureText(label).width,w=labelWidth+18,h=priority?28:23,x=p.x-w/2,y=p.y+r+8;
     const box={x,y,w,h};if(!priority&&boxes.some(b=>box.x<b.x+b.w+8&&box.x+box.w+8>b.x&&box.y<b.y+b.h+5&&box.y+box.h+5>b.y))continue;if(x<8||x+w>usableWidth()-8)continue;boxes.push(box);shown++;
-    rounded(x,y,w,h,6);ctx.fillStyle=priority?'#3454b4':'#fffffff2';ctx.fill();ctx.strokeStyle=alpha(glow(n.id),priority?.55:.20);ctx.lineWidth=1;ctx.stroke();ctx.fillStyle=priority?'#ffffff':'#2c2c2c';ctx.fillText(label,x+9,y+h/2);
+    rounded(x,y,w,h,1);ctx.fillStyle=priority?'#302c75':'#fcfbf9f5';ctx.fill();ctx.strokeStyle=alpha(glow(n.id),priority?.55:.20);ctx.lineWidth=1;ctx.stroke();ctx.fillStyle=priority?'#ffffff':'#2c2c2c';ctx.fillText(label,x+9,y+h/2);
   }
 }
 function scheduleFrame(){if(framePending||!motionEnabled||!graphVisible||document.hidden||state.view==='topics')return;framePending=requestAnimationFrame(function tick(now){framePending=0;if(now-lastFrame>40){draw(now);lastFrame=now;}scheduleFrame();});}
@@ -198,7 +195,7 @@ new IntersectionObserver(entries=>{graphVisible=entries[0].isIntersecting;if(gra
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)scheduleFrame();});
 function measure(){const rect=area.getBoundingClientRect();if(!rect.width||!rect.height)return;width=rect.width;height=rect.height;dpr=Math.min(2,window.devicePixelRatio||1);canvas.width=width*dpr;canvas.height=height*dpr;if(!userMoved&&positions.size)fit(false);else draw();}
 new ResizeObserver(measure).observe(area);
-function findNode(x,y){let hit=null,dist=Infinity;for(const n of positions.values()){const p=coordinates(n),r=Math.max(4.2,Math.min(48,n.r*Math.pow(transform.k,.55))),d=Math.hypot(p.x-x,p.y-y);if(d<r+5&&d<dist){hit=n;dist=d;}}return hit;}
+function findNode(x,y){let hit=null,dist=Infinity;for(const n of positions.values()){const p=coordinates(n),r=Math.max(4.2,Math.min(48,n.r*Math.pow(transform.k,.55))),d=Math.hypot(p.x-x,p.y-y);if(Math.abs(p.x-x)<r+5&&Math.abs(p.y-y)<r+5&&d<dist){hit=n;dist=d;}}return hit;}
 const zoom=d3.zoom().scaleExtent([.08,6]).filter(ev=>ev.type==='wheel'||ev.type==='dblclick'||!findNode(...d3.pointer(ev,canvas))).on('zoom',e=>{transform=e.transform;if(e.sourceEvent){userMoved=true;firstFit=false;}draw();});
 const selection=d3.select(canvas).call(zoom).on('dblclick.zoom',null);
 selection.call(d3.drag().container(canvas).subject(e=>{const n=findNode(e.x,e.y);return n?{x:e.x,y:e.y,node:n}:null;})
