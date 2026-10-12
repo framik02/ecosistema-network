@@ -1,4 +1,4 @@
-import {collaborationNetwork,filterNetwork,connectedGroups,focusNetwork,connectionPostIds} from './network.js?v=2fc9ada61b8f0d91';
+import {collaborationNetwork,filterNetwork,connectedGroups,focusNetwork,connectionPostIds,collaborationCheckpoint,collaborationChanges,validCheckpoint} from './network.js?v=3d5512243cceedcb';
 const $=id=>document.getElementById(id), esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const num=n=>(n||0).toLocaleString('it-IT'), date=s=>s?new Date(s).toLocaleString('it-IT',{timeZone:'Europe/Rome',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'Non disponibile';
 const urlPost=id=>`https://www.instagram.com/p/${encodeURIComponent(id)}/`, urlUser=id=>`https://www.instagram.com/${encodeURIComponent(id)}/`;
@@ -113,17 +113,66 @@ document.querySelector('.profile-panel').id='profile-panel';
 $('network-view').classList.add('panel-collapsed');
 area.insertAdjacentHTML('beforeend','<div class="graph-caption"><span class="graph-overline">ESPLORA LE CONNESSIONI</span><strong id="graph-focus-label">Una rete, molte voci.</strong><span id="graph-focus-note"></span><div class="focus-actions"><button id="graph-overview" hidden>← Tutta la rete</button><button id="graph-depth" aria-pressed="false" hidden>Espandi al secondo livello</button></div></div><div class="graph-display-tools"><button id="graph-labels" aria-pressed="false">Aa <span>Etichette</span></button><button id="graph-motion" aria-pressed="true">◌ <span>Animazione</span></button><button id="graph-reorder">↺ <span>Riordina</span></button></div>');
 $('network-view').insertAdjacentHTML('beforeend','<dialog id="connection-dialog" aria-labelledby="connection-title"><form method="dialog"><button class="dialog-close" aria-label="Chiudi dettaglio del collegamento">×</button></form><span class="kicker">POST ALLA BASE DEL COLLEGAMENTO</span><h2 id="connection-title"></h2><p id="connection-summary"></p><div id="connection-posts"></div><button id="connection-more" class="more-button">Mostra altri post</button></dialog>');
+
+const visitKey='ecosystem-collaboration-visit-v1:'+cfg.snapshot;
+let visitBaseline=null,visitReady=false,visitStorage=true,visitChanges=null,visitPostLimit=12;
+try{const saved=JSON.parse(localStorage.getItem(visitKey)||'null');if(validCheckpoint(saved))visitBaseline=saved;}catch{visitStorage=false;}
+graphPanel.querySelector('.panel-heading').insertAdjacentHTML('beforeend','<button id="updates-open" class="updates-button" aria-haspopup="dialog">Novità <span id="updates-dot" hidden>●</span></button>');
+graphPanel.querySelector('.network-tools').insertAdjacentHTML('beforeend','<button id="show-all" class="overview-button">↖ Panoramica completa</button>');
+area.insertAdjacentHTML('beforebegin','<div class="featured-profiles" id="featured-profiles" aria-label="Profili più attivi nel periodo"></div>');
+$('network-view').insertAdjacentHTML('beforeend',`<dialog id="updates-dialog" aria-labelledby="updates-title"><form method="dialog"><button class="dialog-close" aria-label="Chiudi novità">×</button></form><span class="kicker">DALL’ULTIMA VISITA</span><h2 id="updates-title">Cosa è cambiato</h2><p id="updates-context"></p><div id="updates-metrics" class="updates-metrics"></div><p id="updates-dates"></p><div id="updates-profiles"></div><div id="updates-links"></div><div id="updates-posts"></div><button id="updates-more" class="more-button" hidden>Mostra altri post</button><div class="updates-footer"><p id="updates-storage"></p><button id="updates-read">Segna come visto</button></div></dialog>`);
+function saveVisit(checkpoint){try{localStorage.setItem(visitKey,JSON.stringify(checkpoint));visitStorage=true;}catch{visitStorage=false;}}
+function updateVisit(){
+  visitChanges=collaborationChanges(data.posts,visitBaseline);
+  if(!visitReady&&!visitBaseline){visitBaseline=visitChanges.current;visitReady=true;}
+  saveVisit(visitChanges.current);
+  $('updates-dot').hidden=!(visitChanges.posts.length||visitChanges.profiles.length||visitChanges.links.length);
+  $('updates-open').setAttribute('aria-label',`Novità: ${visitChanges.posts.length} post, ${visitChanges.profiles.length} profili e ${visitChanges.links.length} legami aggiunti`);
+  if($('updates-dialog').open)renderVisit();
+}
+function renderVisit(){
+  if(!visitChanges)return;
+  const c=visitChanges;
+  $('updates-context').textContent=c.firstVisit?'Questa è la prima visita registrata in questo browser. Le novità compariranno dai prossimi aggiornamenti.':`Confronto con i dati consultati il ${date(visitBaseline.seenAt)}. Il riepilogo riguarda l’intero archivio delle collaborazioni, indipendentemente dai filtri della mappa.`;
+  $('updates-metrics').innerHTML=[['Post aggiunti',c.posts.length],['Profili aggiunti',c.profiles.length],['Legami aggiunti',c.links.length]].map(([label,count])=>`<div><strong>${num(count)}</strong><span>${label}</span></div>`).join('');
+  $('updates-dates').textContent=c.posts.length?`${num(c.published.length)} post pubblicati dopo l’ultima visita · ${num(c.earlier.length)} post precedenti, appena raccolti${c.undated.length?' · '+num(c.undated.length)+' con data non verificabile':''}. Un’aggiunta all’archivio non indica necessariamente una collaborazione appena iniziata.`:c.firstVisit?'':'Nessun nuovo post raccolto rispetto al confronto. Le modifiche ai coautori possono comunque aggiungere profili o legami.';
+  $('updates-profiles').innerHTML=c.profiles.length?`<h3>Nuovi profili osservati</h3><p>${c.profiles.slice(0,20).map(id=>'@'+esc(id)).join(' · ')}${c.profiles.length>20?' · e altri '+num(c.profiles.length-20):''}</p>`:'';
+  $('updates-links').innerHTML=c.links.length?`<h3>Nuovi legami autore → collaboratore</h3><ul>${c.links.slice(0,10).map(([a,b])=>`<li>@${esc(a)} → @${esc(b)}</li>`).join('')}</ul>${c.links.length>10?`<p>e altri ${num(c.links.length-10)} legami osservati.</p>`:''}`:'';
+  const recent=new Set(c.published.map(p=>p.id));
+  $('updates-posts').innerHTML=c.posts.slice(0,visitPostLimit).map(p=>`<a class="connection-post" href="${urlPost(p.id)}" target="_blank" rel="noopener"><span><strong>@${esc(p.owner||p.authors[0])}</strong><small>Pubblicato: ${date(p.published)}</small><small>${recent.has(p.id)?'Pubblicato dopo l’ultima visita':'Aggiunto ora all’archivio'}</small></span><span>Apri post ↗</span></a>`).join('');
+  $('updates-more').hidden=c.posts.length<=visitPostLimit;
+  $('updates-storage').textContent=visitStorage?'Confronto salvato solo in questo browser. Non misura gli accessi al sito.':'Il browser non consente il salvataggio: il confronto resterà disponibile solo durante questa visita.';
+}
+$('updates-open').onclick=()=>{visitPostLimit=12;renderVisit();$('updates-dialog').showModal();};
+$('updates-more').onclick=()=>{visitPostLimit+=12;renderVisit();};
+$('updates-read').onclick=()=>{visitBaseline=collaborationCheckpoint(data.posts);visitReady=true;updateVisit();renderVisit();};
+$('updates-dialog').addEventListener('close',()=>$('updates-open').focus({preventScroll:true}));
+let featuredMarkup='';
+function renderFeatured(){
+  const featured=$('featured-profiles');
+  featured.hidden=state.view!=='collab'||!network.nodes.length;$('updates-open').hidden=state.view!=='collab';
+  const leaders=[...network.nodes].sort((a,b)=>b.count-a.count||a.id.localeCompare(b.id)).slice(0,5);
+  const html='<span class="featured-label">PIÙ ATTIVI <small>Post condivisi</small></span>'+leaders.map(n=>`<button data-featured="${esc(n.id)}" aria-pressed="${n.id===state.selected}"><span>@${esc(n.id)}</span><b>${num(n.count)}</b></button>`).join('');
+  if(featuredMarkup!==html){featuredMarkup=html;const active=document.activeElement?.dataset.featured;featured.innerHTML=html;if(active)[...featured.querySelectorAll('button')].find(b=>b.dataset.featured===active)?.focus({preventScroll:true});}
+}
+$('featured-profiles').onclick=e=>{const b=e.target.closest('[data-featured]');if(b)selectProfile(b.dataset.featured);};
+$('featured-profiles').onpointerover=e=>{const b=e.target.closest('[data-featured]');if(b){hover=b.dataset.featured;draw();}};
+$('featured-profiles').onpointerleave=()=>{hover=null;draw();};
+$('featured-profiles').onfocusin=e=>{if(e.target.dataset.featured){hover=e.target.dataset.featured;draw();}};
+$('featured-profiles').onfocusout=()=>{hover=null;draw();};
+$('show-all').onclick=()=>{panelCollapsed=true;$('network-view').classList.add('panel-collapsed');$('panel-toggle').setAttribute('aria-expanded','false');$('panel-toggle').textContent='Mostra elenco';selectProfile(null);userMoved=false;fit();};
+
 $('graph-motion').setAttribute('aria-pressed',String(motionEnabled));
 area.querySelector('.graph-hint').textContent='Trascina e ingrandisci · clic su un profilo o un collegamento';
 function usableWidth(){return Math.max(180,width-(window.innerWidth>900&&!panelCollapsed?290:0));}
 function origin(){return[usableWidth()/2,height/2+20];}
 function rounded(x,y,w,h,r=3){ctx.beginPath();ctx.roundRect(x,y,w,h,r);}
 function coordinates(n){const[x,y]=origin();return{x:x+transform.x+n.x*transform.k,y:y+transform.y+n.y*transform.k};}
-function radius(n){return Math.max(5,Math.min(34,n.r*Math.pow(transform.k,.8)));}
+function radius(n){return Math.max(5,Math.min(44,n.r*Math.pow(transform.k,.8)));}
 
 function arrangeOverview(force=false){
   const next=new Map(),components=connectedGroups(network),fresh=force||!overview.size;
-  const nodeRadius=n=>Math.min(32,15+Math.sqrt(n.count)*2.4);
+  const nodeRadius=n=>Math.min(46,10+Math.sqrt(n.count)*6);
   if(!fresh){
     for(const n of network.nodes){const old=overview.get(n.id);if(old)next.set(n.id,{...old,...n,r:nodeRadius(n)});}
     for(const n of network.nodes){
@@ -177,6 +226,7 @@ function renderGraph(){
 }
 function neighbours(id=state.selected){return id?new Set([id,...network.edges.filter(e=>e.source===id||e.target===id).flatMap(e=>[e.source,e.target])]):null;}
 function updateGraphCaption(){
+  renderFeatured();
   $('graph-focus-label').textContent=state.selected?'@'+state.selected:state.view==='semantic'?'Idee vicine. Voci diverse.':'Tutto l’ecosistema, in una mappa.';
   $('graph-focus-note').textContent=state.selected?`${num((neighbours()?.size||1)-1)} profili direttamente collegati${focusDepth===2?' · secondo livello visibile':''} · ${state.view==='collab'?'in evidenza sulla mappa completa':'seleziona un profilo per le affinità'}`:`${num(network.nodes.length)} profili e ${num(network.edges.length)} collegamenti · ingrandisci per leggere i nomi`;
   if(!$('graph-footnote').textContent.includes('I gruppi'))$('graph-footnote').textContent+=' I gruppi raccolgono profili connessi dai post osservati.';
@@ -192,20 +242,20 @@ function draw(now=performance.now()){
   const sorted=[...positions.values()].sort((a,b)=>b.count-a.count||a.id.localeCompare(b.id));
   const hoverSet=hover?neighbours(hover):state.selected?neighbours():null;
   for(const e of edges){const s=projected.get(e.source),t=projected.get(e.target);if(!s||!t)continue;
-    const incident=state.selected&&(e.source===state.selected||e.target===state.selected),pointed=hoverEdge&&edgeKey(hoverEdge)===edgeKey(e),hovered=hover&&(e.source===hover||e.target===hover),highlight=pointed||hovered||incident;
-    const opacity=hover&&!hovered?.09:state.selected&&!incident?.12:highlight?.9:.3;
-    ctx.strokeStyle=pointed?'#302c75':alpha(highlight?glow(e.source):'#514d87',opacity);ctx.lineWidth=pointed?3.8:Math.min(highlight?4:2.5,(highlight?1.1:.6)+Math.log1p(e.weight)*.55);ctx.lineCap='round';
+    const incident=!hover&&state.selected&&(e.source===state.selected||e.target===state.selected),pointed=hoverEdge&&edgeKey(hoverEdge)===edgeKey(e),hovered=hover&&(e.source===hover||e.target===hover),highlight=pointed||hovered||incident;
+    const opacity=hover&&!hovered?.07:state.selected&&!incident&&!hover?.10:highlight?.92:.24;
+    ctx.strokeStyle=pointed?'#302c75':alpha(highlight?'#302c75':'#514d87',opacity);ctx.lineWidth=pointed?4.2:Math.min(highlight?5:3.2,(highlight?1.4:.5)+Math.sqrt(e.weight)*.55);ctx.lineCap='round';
     const c=curve(s,t);ctx.beginPath();ctx.moveTo(s.x,s.y);ctx.quadraticCurveTo(c.x,c.y,t.x,t.y);ctx.stroke();
     if(state.view==='collab'&&state.relation==='direct'&&(highlight||transform.k>.8)){const tip=onCurve(s,c,t,.82),before=onCurve(s,c,t,.76),a=Math.atan2(tip.y-before.y,tip.x-before.x),z=highlight?5:3;ctx.fillStyle=ctx.strokeStyle;ctx.beginPath();ctx.moveTo(tip.x,tip.y);ctx.lineTo(tip.x-z*Math.cos(a-.5),tip.y-z*Math.sin(a-.5));ctx.lineTo(tip.x-z*Math.cos(a+.5),tip.y-z*Math.sin(a+.5));ctx.closePath();ctx.fill();}
     if(highlight&&motionEnabled&&state.view==='collab'&&state.relation==='direct'){const p=onCurve(s,c,t,(now/8000+(e.weight%7)/7)%1);ctx.fillStyle=glow(e.source);ctx.beginPath();ctx.arc(p.x,p.y,1.8,0,Math.PI*2);ctx.fill();}
   }
   for(const n of [...sorted].reverse()){
     const p=projected.get(n.id),r=radius(n),selected=n.id===state.selected,col=glow(n.id);if(p.x<-60||p.x>width+60||p.y<-60||p.y>height+60)continue;
-    ctx.globalAlpha=hoverSet&&!hoverSet.has(n.id)?.22:1;
+    ctx.globalAlpha=hoverSet&&!hoverSet.has(n.id)?.3:1;
     if(selected||n.id===hover){ctx.fillStyle=alpha(col,.45);ctx.fillRect(p.x-r+3,p.y-r+3,2*r,2*r);}
     else{ctx.fillStyle='#302c7510';ctx.fillRect(p.x-r+2,p.y-r+2,2*r,2*r);}
-    rounded(p.x-r,p.y-r,2*r,2*r,1);ctx.fillStyle=selected?'#302c75':'#fcfbf9';ctx.fill();ctx.strokeStyle=alpha(col,selected||n.id===hover?1:.9);ctx.lineWidth=selected?2.2:1.4;ctx.stroke();
-    if(r>=7){ctx.textAlign='center';ctx.textBaseline='middle';ctx.font=`650 ${Math.min(14,Math.max(8,r*.72))}px Archivo,sans-serif`;ctx.fillStyle=selected?'#fff':'#302c75';ctx.fillText(initials(n.id),p.x,p.y+.5);}
+    rounded(p.x-r,p.y-r,2*r,2*r,1);ctx.fillStyle=selected?'#302c75':n.count>=5?'#eeedf8':'#fcfbf9';ctx.fill();ctx.strokeStyle=selected||n.id===hover?'#302c75':alpha(col,.9);ctx.lineWidth=selected?2.2:1.4;ctx.stroke();
+    if(r>=7){ctx.textAlign='center';ctx.textBaseline='middle';ctx.font=`650 ${Math.min(15,Math.max(9,r*.78))}px Archivo,sans-serif`;ctx.fillStyle=selected?'#fff':'#302c75';ctx.fillText(initials(n.id),p.x,p.y+.5);}
     else{ctx.fillStyle=alpha(col,.75);ctx.fillRect(p.x-1.5,p.y-1.5,3,3);}
   }
   ctx.globalAlpha=1;const boxes=[];let shown=0;
@@ -248,7 +298,7 @@ $('panel-toggle').onclick=()=>{panelCollapsed=!panelCollapsed;$('network-view').
 reducedMotion.addEventListener('change',e=>{if(e.matches){motionEnabled=false;$('graph-motion').setAttribute('aria-pressed','false');cancelAnimationFrame(framePending);framePending=0;draw();}});
 let inertPanels=[];
 function toggleImmersive(value=!immersive){immersive=value;if(immersive){inertPanels=[...document.querySelectorAll('main > :not(#network-view), .sidebar')].filter(el=>!el.inert);inertPanels.forEach(el=>el.inert=true);}else{inertPanels.forEach(el=>el.inert=false);inertPanels=[];}$('network-view').classList.toggle('immersive',immersive);document.body.classList.toggle('graph-immersive',immersive);$('immersive').setAttribute('aria-expanded',String(immersive));$('immersive').innerHTML=immersive?'<span>↙</span> Esci dalla vista':'<span>⛶</span> Vista immersiva';userMoved=false;setTimeout(()=>{measure();focusOnSelection(false);},50);}
-$('immersive').onclick=()=>toggleImmersive();document.addEventListener('keydown',e=>{if(e.key==='Escape'&&immersive&&!$('connection-dialog').open){toggleImmersive(false);$('immersive').focus();}});
+$('immersive').onclick=()=>toggleImmersive();document.addEventListener('keydown',e=>{if(e.key==='Escape'&&immersive&&!$('connection-dialog').open&&!$('updates-dialog').open){toggleImmersive(false);$('immersive').focus();}});
 let connectionCodes=[],connectionLimit=20,connectionReturnFocus=null,activeConnection=null;
 function openConnection(a,b,directed=false){
   activeConnection={a,b,directed};connectionLimit=20;updateConnectionEvidence();connectionReturnFocus=document.activeElement;$('connection-dialog').showModal();
@@ -285,7 +335,7 @@ async function refresh(){
   if(requesting)return;requesting=true;
   try{
     const next=await fetchJson(cfg.snapshot);if(next.schema!==1||!Array.isArray(next.posts)||!Array.isArray(next.profiles))throw Error('Formato non disponibile');
-    data=next;profiles=new Map(data.profiles.map(p=>[p.id,p]));postIndex=new Map(data.posts.map(p=>[p.id,p]));
+    data=next;updateVisit();profiles=new Map(data.profiles.map(p=>[p.id,p]));postIndex=new Map(data.posts.map(p=>[p.id,p]));
     const categoryOptions=[...new Set(data.profiles.map(p=>p.category))].sort();
     $('category').innerHTML='<option value="">Tutte le categorie</option>'+categoryOptions.map(c=>`<option ${c===state.category?'selected':''}>${esc(c)}</option>`).join('');
     $('profiles').innerHTML=data.profiles.map(p=>`<option value="${esc(p.id)}">`).join('');
