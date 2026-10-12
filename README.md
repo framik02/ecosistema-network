@@ -81,8 +81,6 @@ python -m unittest discover -s tests -p 'test_*.py'
 
 I test coprono direzione dei legami, coautori, aggiornamento di un post già esistente, filtri, lettura del database senza log, attribuzione semantica e deduplica. D3 v7.9.0 è incluso in `site/vendor`, con licenza ISC.
 
-### Panoramica delle reti
+### Mappa completa delle collaborazioni
 
-La vista Collaborazioni si apre con riquadri separati per ogni componente connessa osservata. I riquadri riportano tutti i conteggi, mostrano fino a nove profili in anteprima e permettono di aprire una rete alla volta. Le reti sono ordinate per numero di profili; il nome è quello del profilo con più post nel gruppo, non una classificazione editoriale. «Mostra altre reti» rende disponibili tutte le componenti.
-
-Il dettaglio apre i collegamenti diretti del profilo più attivo. Il selettore permette di visitare qualsiasi profilo della stessa rete; il secondo livello è opzionale. I gruppi si aggiornano con i dati, senza inferire affinità politiche e senza esportare caption.
+La vista iniziale mostra tutti i profili e tutti i collegamenti del periodo in un unico grafo. Le componenti scollegate sono distribuite nello spazio disponibile, senza riquadri separati. L’elenco laterale è apribile; selezionare un profilo evidenzia i suoi legami mantenendo l’intero grafo. Le etichette emergono con lo zoom e il passaggio del puntatore. Gli aggiornamenti conservano le posizioni; «Riordina» ridistribuisce la mappa quando serve.
