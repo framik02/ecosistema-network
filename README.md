@@ -18,7 +18,7 @@ Identità Liberi Network: marchio originale, titoli Bebas Neue, testi Archivo e 
 
 `bridge/serve.py` legge SQLite in sola lettura a ogni richiesta. La pagina locale richiede nuovi dati ogni 10 secondi. `bridge/semantic.py --loop` controlla il database ogni 120 secondi dopo ogni elaborazione, riusa gli embedding in cache e rigenera le analisi quando i dati cambiano. Il primo passaggio è più lungo dei successivi.
 
-`bridge/publish.py --loop` pubblica una vista JSON dei dati ogni 120 secondi sul ramo separato `data`, solo quando cambiano. Riprova dopo interruzioni di rete. La dashboard GitHub Pages legge quei file ogni 30 secondi; la cache della piattaforma può aggiungere un ritardo. La pubblicazione del JSON non ricostruisce il sito.
+`bridge/share_collaborations.py --loop`, dopo l’abilitazione esplicita, pubblica ogni 120 secondi solo i post con più autori e i profili coinvolti sul ramo `collaborations`. Esclude caption, contenuti non collaborativi, account estranei alla rete e tutte le analisi semantiche. Riprova dopo interruzioni di rete. La pagina pubblica controlla i dati ogni 30 secondi; la cache della piattaforma può aggiungere alcuni minuti. Modifiche e cancellazioni nel database vengono esportate alla lettura successiva. Il JSON non ricostruisce il sito.
 
 Se il computer o il processo di pubblicazione sono fermi, il sito pubblico resta disponibile con l'ultima versione. La data di osservazione e quella dell'analisi sono visibili; dopo 30 minuti la pagina indica «Ultimi dati disponibili». L'interfaccia non spaccia la ricezione della pagina per la data di raccolta dei dati.
 
@@ -44,13 +44,27 @@ Temi: K-means sulle caption uniche, seed 42, da 2 a 10 cluster secondo dimension
 
 Cornici narrative: similarità alle sei descrizioni esplicite in `bridge/semantic.py`, soglia 0,42 e margine 0,04 sulla seconda cornice. Le soglie sono euristiche non calibrate. Non si tratta di una misura di probabilità, sentiment o adesione politica. Sono suggerimenti di lettura verificabili attraverso i post originali.
 
-## Pubblicazione
+## Condivisione delle sole collaborazioni
 
-- `main`: codice della dashboard, bridge e test.
-- `gh-pages`: soli file di `site/`, con `config.js` rivolto al ramo pubblico `data`.
-- `data`: `latest.json` e `semantic.json`, aggiornati dal publisher locale.
+- `main`: codice e test, senza dati raccolti.
+- `gh-pages`: interfaccia generata con una sola sezione, Collaborazioni.
+- `collaborations`: solo `latest.json`, con profili coinvolti, categorie, autori, date e identificativi dei post.
 
-La configurazione GitHub Pages usa `gh-pages` come sorgente. [Documentazione ufficiale](https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site).
+Il publisher legge SQLite in sola lettura e usa una lista esplicita di campi e file. La modalità pubblica forza la vista collaborazioni anche se il link contiene `view=semantic` o `view=topics`; non richiede alcun dato semantico. La versione locale completa resta disponibile.
+
+La pubblicazione richiede l’autorizzazione esplicita a rendere pubblici questi dati: un sito GitHub Pages e il suo ramo dati sono accessibili pubblicamente. `shareCollaborations` resta `false` fino a quell’autorizzazione. `bridge/publish.py` è il vecchio esportatore completo: non viene attivato per questo link.
+
+Dopo l’autorizzazione:
+
+1. Eseguire `bridge/share_collaborations.py` con database, stato locale, repository, URL pubblico e URL snapshot configurati. `--prepare-only` genera e verifica i file localmente senza pubblicarli.
+2. Attivare GitHub Pages dal ramo `gh-pages`, directory `/`, e verificare il link effettivamente online.
+3. Eseguire `abilita-condivisione.ps1 -ConfirmPublicCollaborations` per abilitare la sincronizzazione in background e l’avvio al login Windows. Lo script usa la configurazione locale in `.state/config.json`.
+
+Il publisher confronta anche i file dell’interfaccia in `site/`: le modifiche salvate vengono riportate nel sito pubblico automaticamente. Una versione degli asset evita di mescolare file vecchi e nuovi; la pagina già aperta controlla la versione e si ricarica dopo una nuova pubblicazione. La configurazione pubblica e il perimetro delle collaborazioni vengono rigenerati senza copiare la configurazione locale completa.
+
+Il computer di raccolta deve essere acceso e connesso per inviare nuovi dati; dopo il riavvio la sincronizzazione riparte al login Windows. A computer spento il link continua a mostrare l’ultima versione. I filtri temporanei di un visitatore non modificano i dati degli altri; il pulsante Condividi include periodo e profilo selezionati nel link.
+
+[Configurazione GitHub Pages](https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site).
 
 ## Verifiche
 

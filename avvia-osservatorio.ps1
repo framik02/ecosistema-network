@@ -23,3 +23,7 @@ Start-Worker 'semantic' 'semantic.py' ($dbArgs + @('--loop', '--interval', '120'
 if (-not $SkipPublisher -and $configuration.publish) {
     Start-Worker 'publisher' 'publish.py' ($dbArgs + @('--repo', ('"' + $configuration.dataRepo + '"'), '--loop', '--interval', '120'))
 }
+
+if (-not $SkipPublisher -and $configuration.shareCollaborations) {
+    & (Join-Path $project "avvia-condivisione.ps1")
+}

@@ -16,9 +16,9 @@ function freshness(){
   if(!data)return;
   const age=Date.now()-new Date(data.observed_at).getTime(),stale=age>30*60000;
   $('fresh-title').textContent=stale?'Ultimi dati disponibili':'Dati aggiornati';$('fresh-time').textContent=date(data.observed_at);$('status-dot').classList.toggle('stale',stale);
-  $('method-meta').textContent=`Ultima osservazione: ${date(data.observed_at)}. Analisi semantica: ${date(sem?.generated_at)}. Le mappe mostrano il periodo selezionato; i dati pubblicati possono arrivare con qualche minuto di ritardo.`;
+  $('method-meta').textContent=cfg.collaborationsOnly?`Ultima osservazione: ${date(data.observed_at)}. Aggiornamento automatico delle collaborazioni osservate.`:`Ultima osservazione: ${date(data.observed_at)}. Analisi semantica: ${date(sem?.generated_at)}. Le mappe mostrano il periodo selezionato; i dati pubblicati possono arrivare con qualche minuto di ritardo.`;
 }
-function setView(view){state.view=view;state.selected=null;state.topic=null;state.feedLimit=9;state.rankLimit=12;firstFit=true;userMoved=false;render();updateUrl();}
+function setView(view){state.view=cfg.collaborationsOnly?'collab':view;state.selected=null;state.topic=null;state.feedLimit=9;state.rankLimit=12;firstFit=true;userMoved=false;render();updateUrl();}
 function updateUrl(){const q=new URLSearchParams({view:state.view,days:state.days});if(state.selected)q.set('profile',state.selected);history.replaceState(null,'',`${location.pathname}?${q}`);}
 function render(){
   if(!data)return;
@@ -92,7 +92,7 @@ function renderFeed(){
   $('feed-title').textContent=state.topic&&topics?state.topicLabel:state.selected?'Contenuti di @'+state.selected:topics?'Le caption da esplorare':semantic?'I contenuti alla base della rete':'Le collaborazioni più recenti';
   $('feed-kicker').textContent=state.topic&&topics?'CAPTION DEL GRUPPO SELEZIONATO':'CONTENUTI OSSERVATI';
   $('clear-topic').hidden=!state.topic||!topics;$('feed-count').textContent=`${num(posts.length)} contenuti`;
-  $('feed').innerHTML=posts.slice(0,state.feedLimit).map(p=>`<article class="post-card"><div class="post-head"><span class="avatar">${esc(initials(p.owner||'?'))}</span><div><a class="post-author" href="${urlUser(p.owner||'')}" target="_blank" rel="noopener">${p.owner?'@'+esc(p.owner):'Autore non identificato'}</a><small>${date(p.published)}</small></div></div><p class="post-caption">${esc(p.caption||'Caption non disponibile per questo contenuto.')}</p><div class="post-partners">${p.authors.length>1?'Con '+p.authors.filter(a=>a!==p.owner).map(a=>'@'+esc(a)).join(' · '):'Contenuto originale del profilo'}</div><div class="post-bottom"><a href="${urlPost(p.id)}" target="_blank" rel="noopener">Leggi il post completo ↗</a><span>INSTAGRAM</span></div></article>`).join('')||'<p class="empty-feed">Nessun contenuto per questa selezione. Prova a cambiare periodo o filtri.</p>';
+  $('feed').innerHTML=posts.slice(0,state.feedLimit).map(p=>`<article class="post-card"><div class="post-head"><span class="avatar">${esc(initials(p.owner||'?'))}</span><div><a class="post-author" href="${urlUser(p.owner||'')}" target="_blank" rel="noopener">${p.owner?'@'+esc(p.owner):'Autore non identificato'}</a><small>${date(p.published)}</small></div></div>${cfg.collaborationsOnly?'':`<p class="post-caption">${esc(p.caption||'Caption non disponibile per questo contenuto.')}</p>`}<div class="post-partners">${p.authors.length>1?'Con '+p.authors.filter(a=>a!==p.owner).map(a=>'@'+esc(a)).join(' · '):'Contenuto originale del profilo'}</div><div class="post-bottom"><a href="${urlPost(p.id)}" target="_blank" rel="noopener">Leggi il post completo ↗</a><span>INSTAGRAM</span></div></article>`).join('')||'<p class="empty-feed">Nessun contenuto per questa selezione. Prova a cambiare periodo o filtri.</p>';
   $('more-posts').hidden=posts.length<=state.feedLimit;
 }
 
@@ -238,11 +238,12 @@ async function refresh(){
     $('category').innerHTML='<option value="">Tutte le categorie</option>'+categoryOptions.map(c=>`<option ${c===state.category?'selected':''}>${esc(c)}</option>`).join('');
     $('profiles').innerHTML=data.profiles.map(p=>`<option value="${esc(p.id)}">`).join('');
     showNotice('');
-    try{const analysis=await fetchJson(cfg.semantic);if(analysis.schema===1&&analysis.periods){sem=analysis;semanticError=false;}else semanticError=true;}catch{semanticError=true;}
+    if(!cfg.collaborationsOnly)try{const analysis=await fetchJson(cfg.semantic);if(analysis.schema===1&&analysis.periods){sem=analysis;semanticError=false;}else semanticError=true;}catch{semanticError=true;}
     render();
+    if(cfg.release&&cfg.revision){try{const release=await fetchJson(cfg.release);if(release.revision&&release.revision!==cfg.revision&&sessionStorage.getItem('ecosystem-release')!==release.revision){sessionStorage.setItem('ecosystem-release',release.revision);const next=new URL(location.href);next.searchParams.set('_release',release.revision);location.replace(next.href);}}catch{/* Keep the last working view during deployment. */}}
   }catch{showNotice(data?'Connessione ai nuovi dati momentaneamente non disponibile. Restano visibili gli ultimi dati ricevuti.':'Non riesco a caricare i dati. Riproverò automaticamente.');$('fresh-title').textContent=data?'Ultimi dati ricevuti':'Dati non disponibili';$('status-dot').classList.add('stale');}
   finally{requesting=false;}
 }
-const params=new URLSearchParams(location.search);if(['collab','semantic','topics'].includes(params.get('view')))state.view=params.get('view');if(['0','1','7','30'].includes(params.get('days')))state.days=+params.get('days');state.selected=params.get('profile');
+const params=new URLSearchParams(location.search);if(!cfg.collaborationsOnly&&['collab','semantic','topics'].includes(params.get('view')))state.view=params.get('view');if(['0','1','7','30'].includes(params.get('days')))state.days=+params.get('days');state.selected=params.get('profile');if(cfg.collaborationsOnly)updateUrl();
 document.querySelectorAll('[data-days]').forEach(x=>{const active=+x.dataset.days===state.days;x.classList.toggle('selected',active);x.setAttribute('aria-pressed',String(active));});
 refresh();setInterval(()=>{if(!document.hidden)refresh();},cfg.refreshMs);document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh();});
