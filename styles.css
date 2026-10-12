@@ -160,7 +160,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{ou
 
 
 /* A single continuous map uses the full stage by default. */
-.network-panel .graph-area{height:820px;background:radial-gradient(#302c7515 .65px,transparent .65px),#f5f3ef;background-size:19px 19px}
+.network-panel .graph-area{height:820px;background:radial-gradient(ellipse at 45% 45%,#fcfbf9,#f2efeb);background-size:auto}
 .network-layout.immersive .graph-area{height:auto;min-height:220px}
 .graph-caption{top:20px}.graph-caption strong{font-size:28px}.graph-caption .graph-overline{display:none}
 .graph-caption{background:#f5f3efd9;padding:0 10px 8px 0}
