@@ -61,3 +61,25 @@ export function collaborationChanges(posts,baseline,now=new Date().toISOString()
   const since=Date.parse(baseline.seenAt),until=Date.parse(now);
   return {current,firstVisit:false,posts:fresh,profiles:current.profiles.filter(id=>!knownProfiles.has(id)),links:current.links.filter(key=>!knownLinks.has(key)).map(key=>JSON.parse(key)),published:fresh.filter(p=>Date.parse(p.published)>=since&&Date.parse(p.published)<=until),earlier:fresh.filter(p=>Date.parse(p.published)<since),undated:fresh.filter(p=>!Number.isFinite(Date.parse(p.published))||Date.parse(p.published)>until)};
 }
+
+// The monitored ecosystem: only links between two monitored profiles become nodes and lines.
+// External collaborators are kept as a count on the monitored profile, never drawn.
+export function ecosystemNetwork(graph,monitored){
+  const external=new Map(),inside=e=>monitored(e.source)&&monitored(e.target);
+  for(const e of graph.edges){
+    for(const[a,b]of[[e.source,e.target],[e.target,e.source]])if(monitored(a)&&!monitored(b)){if(!external.has(a))external.set(a,new Set());external.get(a).add(b);}
+  }
+  const edges=graph.edges.filter(inside),ids=new Set(edges.flatMap(e=>[e.source,e.target]));
+  const outsideOnly=graph.nodes.filter(n=>monitored(n.id)&&!ids.has(n.id)).length;
+  return{nodes:graph.nodes.filter(n=>ids.has(n.id)).map(n=>({...n,external:external.get(n.id)?.size||0})),edges,outsideOnly};
+}
+
+// Undirected count of links between categories, keyed "A|B" with A<=B.
+export function categoryPairs(graph,category){
+  const pairs=new Map(),seen=new Set();
+  for(const e of graph.edges){
+    const key=[e.source,e.target].sort().join('\u0000');if(seen.has(key))continue;seen.add(key);
+    const pair=[category(e.source),category(e.target)].sort().join('|');pairs.set(pair,(pairs.get(pair)||0)+1);
+  }
+  return pairs;
+}

@@ -5,6 +5,7 @@ Osservatorio delle collaborazioni Instagram, delle caption e delle affinità sem
 ## Viste
 
 - **Collaborazioni:** relazioni dirette dall'autore ai collaboratori oppure compresenza di tutti i coautori; periodo, ricerca, categorie, schede e post originali.
+  Si apre sui 7 giorni e sull'ecosistema monitorato: nodi e linee solo fra due profili dell'elenco, gli account esterni restano un conteggio sul profilo e tornano visibili con «Con profili esterni». Sopra la mappa quattro letture automatiche (legame più frequente, profilo più collegato, ponte fra categorie, coppia di categorie più frequente), sotto la tabella delle collaborazioni fra categorie.
 - **Affinità semantiche:** cosine similarity fra vettori medi delle caption originali di ogni profilo; soglia regolabile e coppie di caption come esempi. Minimo due caption distinte per profilo.
 - **Temi e narrazioni:** cluster semantici con parole distintive ed esempi; sei cornici narrative esplorative, esplicitamente non validate come opinioni degli autori.
 

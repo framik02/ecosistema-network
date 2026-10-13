@@ -3,6 +3,6 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test tests/network.test.js tests/graph_exploration.test.js tests/visit_changes.test.js"
+    "test": "node --test tests/network.test.js tests/graph_exploration.test.js tests/visit_changes.test.js tests/ecosystem.test.js"
   }
 }

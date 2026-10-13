@@ -1,14 +1,17 @@
-import {collaborationNetwork,filterNetwork,connectedGroups,focusNetwork,connectionPostIds,collaborationCheckpoint,collaborationChanges,validCheckpoint} from './network.js';
+import {collaborationNetwork,ecosystemNetwork,categoryPairs,filterNetwork,connectedGroups,focusNetwork,connectionPostIds,collaborationCheckpoint,collaborationChanges,validCheckpoint} from './network.js';
 const $=id=>document.getElementById(id), esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const num=n=>(n||0).toLocaleString('it-IT'), date=s=>s?new Date(s).toLocaleString('it-IT',{timeZone:'Europe/Rome',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'Non disponibile';
 const urlPost=id=>`https://www.instagram.com/p/${encodeURIComponent(id)}/`, urlUser=id=>`https://www.instagram.com/${encodeURIComponent(id)}/`;
 const COLORS={'Politico':'#302c75','Partito Politico':'#6554a4','Giornalista':'#C08A2E','Media tradizionali':'#2F5D8C','New Media':'#2E8F8B','Content Creator':'#8097cc','Altro':'#6F7479','Fuori elenco':'#9AA0A6'};
 const cfg=window.ECOSYSTEM_CONFIG||{snapshot:'/snapshot',semantic:'/semantic',refreshMs:10000};
-const state={view:'collab',days:1,relation:'direct',threshold:.65,category:'',query:'',selected:null,topic:null,topicLabel:'',feedLimit:9,rankLimit:12};
+const state={view:'collab',days:7,scope:'ecosystem',relation:'direct',threshold:.65,category:'',query:'',selected:null,topic:null,topicLabel:'',feedLimit:9,rankLimit:12};
 let data=null,sem=null,profiles=new Map(),postIndex=new Map(),network={nodes:[],edges:[]},periodPosts=[],requesting=false,semanticError=false,graphKey='',firstFit=true;
 const color=id=>COLORS[profiles.get(id)?.category]||COLORS.Altro;
 const initials=id=>id.replace(/[_.]/g,'').slice(0,2).toUpperCase();
 const semPeriod=()=>sem?.periods?.[String(state.days)];
+const monitored=id=>!!profiles.get(id)?.monitored,catOf=id=>profiles.get(id)?.category||'Fuori elenco';
+const CATEGORY_ORDER=['Politico','Partito Politico','Giornalista','Media tradizionali','New Media','Content Creator','Altro'];
+const ecosystemView=()=>state.view==='collab'&&state.scope==='ecosystem';
 
 function metric(label,value,note,symbol){return`<article class="metric"><span class="metric-label">${label}</span><span class="metric-symbol" aria-hidden="true">${symbol}</span><strong>${typeof value==='number'?num(value):esc(value)}</strong><small>${note}</small></article>`;}
 function showNotice(text){$('notice').hidden=!text;$('notice').textContent=text;}
@@ -19,7 +22,7 @@ function freshness(){
   $('method-meta').textContent=cfg.collaborationsOnly?`Ultima osservazione: ${date(data.observed_at)}. Aggiornamento automatico delle collaborazioni osservate.`:`Ultima osservazione: ${date(data.observed_at)}. Analisi semantica: ${date(sem?.generated_at)}. Le mappe mostrano il periodo selezionato; i dati pubblicati possono arrivare con qualche minuto di ritardo.`;
 }
 function setView(view){state.view=cfg.collaborationsOnly?'collab':view;state.selected=null;state.topic=null;state.feedLimit=9;state.rankLimit=12;firstFit=true;userMoved=false;render();updateUrl();}
-function updateUrl(){const q=new URLSearchParams({view:state.view,days:state.days});if(state.selected)q.set('profile',state.selected);history.replaceState(null,'',`${location.pathname}?${q}`);}
+function updateUrl(){const q=new URLSearchParams({view:state.view,days:state.days});if(state.scope==='all')q.set('scope','all');if(state.selected)q.set('profile',state.selected);history.replaceState(null,'',`${location.pathname}?${q}`);}
 function render(){
   if(!data)return;
   const semantic=state.view==='semantic',topics=state.view==='topics',sp=semPeriod();
@@ -34,18 +37,21 @@ function render(){
   const cutoff=state.days?Date.now()-state.days*86400000:0;
   periodPosts=data.posts.filter(p=>new Date(p.published).getTime()>=cutoff);
   const collabs=periodPosts.filter(p=>p.authors.length>1);
-  const base=semantic?{nodes:(sp?.nodes||[]).map(n=>({...n,count:n.captions})),edges:(sp?.edges||[]).filter(e=>e.score>=state.threshold).map(e=>({...e,weight:e.score}))}:collaborationNetwork(collabs,state.relation);
+  const full=semantic?{nodes:(sp?.nodes||[]).map(n=>({...n,count:n.captions})),edges:(sp?.edges||[]).filter(e=>e.score>=state.threshold).map(e=>({...e,weight:e.score}))}:collaborationNetwork(collabs,state.relation);
+  const eco=ecosystemView(),base=eco?ecosystemNetwork(full,monitored):full;
   network=filterNetwork(base,state.category,profiles,state.query);
   if(semantic){const connected=new Set(network.edges.flatMap(e=>[e.source,e.target]));network.nodes=network.nodes.filter(n=>connected.has(n.id));}
   if(state.selected&&!network.nodes.some(n=>n.id===state.selected))state.selected=null;
   const displayedIds=new Set(network.nodes.map(n=>n.id));
   const q=state.query.toLowerCase().replace(/^@/,'');
-  const selectedPosts=collabs.filter(p=>(!state.category||p.authors.some(a=>profiles.get(a)?.category===state.category))&&(!q||p.authors.some(a=>a.includes(q))));
+  const selectedPosts=collabs.filter(p=>(!eco||p.authors.filter(monitored).length>1)&&(!state.category||p.authors.some(a=>profiles.get(a)?.category===state.category))&&(!q||p.authors.some(a=>a.includes(q))));
   const external=network.nodes.filter(n=>!profiles.get(n.id)?.monitored).length;
-  $('metrics').innerHTML=topics?metric('Caption analizzate',sp?.caption_count,'Nel periodo selezionato','≋')+metric('Temi emersi',sp?.topics?.length,'Raggruppamenti automatici','◌')+metric('Cornici suggerite',sp?.narratives?.length,'Ipotesi da verificare nei testi','↗')+metric('Profili confrontabili',sp?.nodes?.length,'Con almeno 2 caption originali','◎'):semantic?metric('Profili connessi',network.nodes.length,'Con affinità sopra la soglia','◎')+metric('Affinità individuate',network.edges.length,'Connessioni visibili nella mappa','↗')+metric('Caption analizzate',sp?.caption_count,'Testi del periodo, non solo collab','≋')+metric('Soglia di similarità',state.threshold.toFixed(2).replace('.',','),'Cosine similarity, non probabilità','≈'):metric('Post in collaborazione',selectedPosts.length,'Contenuti condivisi nel periodo','↗')+metric('Profili nella rete',network.nodes.length,'Autori e collaboratori osservati','◎')+metric('Connessioni',network.edges.length,state.relation==='direct'?'Relazioni autore → collaboratore':'Coppie presenti nello stesso post','↔')+metric('Profili fuori elenco',external,'Emersi attraverso collaborazioni','＋');
+  $('metrics').innerHTML=topics?metric('Caption analizzate',sp?.caption_count,'Nel periodo selezionato','≋')+metric('Temi emersi',sp?.topics?.length,'Raggruppamenti automatici','◌')+metric('Cornici suggerite',sp?.narratives?.length,'Ipotesi da verificare nei testi','↗')+metric('Profili confrontabili',sp?.nodes?.length,'Con almeno 2 caption originali','◎'):semantic?metric('Profili connessi',network.nodes.length,'Con affinità sopra la soglia','◎')+metric('Affinità individuate',network.edges.length,'Connessioni visibili nella mappa','↗')+metric('Caption analizzate',sp?.caption_count,'Testi del periodo, non solo collab','≋')+metric('Soglia di similarità',state.threshold.toFixed(2).replace('.',','),'Cosine similarity, non probabilità','≈'):eco?metric('Legami nell’ecosistema',network.edges.length,'Fra due profili monitorati','↔')+metric('Profili collegati',network.nodes.length,'Monitorati con almeno un legame','◎')+metric('Post fra monitorati',selectedPosts.length,'Pubblicati insieme nel periodo','↗')+metric('Profili esterni coinvolti',full.nodes.filter(n=>!monitored(n.id)).length,'Visibili con «Con profili esterni»','＋'):metric('Post in collaborazione',selectedPosts.length,'Contenuti condivisi nel periodo','↗')+metric('Profili nella rete',network.nodes.length,'Autori e collaboratori osservati','◎')+metric('Connessioni',network.edges.length,state.relation==='direct'?'Relazioni autore → collaboratore':'Coppie presenti nello stesso post','↔')+metric('Profili fuori elenco',external,'Emersi attraverso collaborazioni','＋');
   $('graph-count').textContent=`${num(network.nodes.length)} profili · ${num(network.edges.length)} legami`;
   const cats=[...new Set(network.nodes.map(n=>profiles.get(n.id)?.category||'Altro'))];
   $('legend').innerHTML=cats.map(c=>`<span><i style="background:${COLORS[c]||COLORS.Altro}"></i>${esc(c)}</span>`).join('');
+  $('scope').hidden=state.view!=='collab';$('graph-empty').innerHTML=eco?'Nessun legame fra profili monitorati in questo periodo.<br><span>Prova un periodo più ampio o mostra i profili esterni.</span>':'Nessuna connessione per questi filtri.<br><span>Prova un periodo più ampio.</span>';
+  renderReadings(collabs);
   if(!topics){renderGraph();renderProfiles();}else renderTopics();
   renderFeed();freshness();
   if((topics||semantic)&&!sp)showNotice('L’analisi delle caption non è ancora disponibile. La mappa delle collaborazioni è già consultabile.');
@@ -63,7 +69,7 @@ function renderProfiles(){
     const neighbours=new Map();
     for(const e of links){const other=e.source===id?e.target:e.source;const old=neighbours.get(other);if(!old||semantic||e.weight>old.weight)neighbours.set(other,{...e,id:other});}
     rows=[...neighbours.values()].sort((a,b)=>b.weight-a.weight);
-    $('profile-detail').innerHTML=`<div class="profile-metrics"><div><strong>${num(n?.count)}</strong><small>${semantic?'caption originali':'post condivisi'}</small></div><div><strong>${num(neighbours.size)}</strong><small>${semantic?'profili affini':'profili collegati'}</small></div></div><a class="profile-link" href="${urlUser(id)}" target="_blank" rel="noopener">Apri il profilo Instagram ↗</a><div class="profile-description">${semantic?'Somiglianza fra i vettori medi dei profili. Le coppie di testi sotto ogni voce sono esempi della vicinanza rilevata.':'Le connessioni rispettano la modalità selezionata. Seleziona un altro profilo per esplorare i suoi legami.'}</div>`;
+    $('profile-detail').innerHTML=`<div class="profile-metrics"><div><strong>${num(n?.count)}</strong><small>${semantic?'caption originali':'post condivisi'}</small></div><div><strong>${num(neighbours.size)}</strong><small>${semantic?'profili affini':ecosystemView()?'profili monitorati':'profili collegati'}</small></div>${n?.external?`<div><strong>${num(n.external)}</strong><small>profili esterni</small></div>`:''}</div><a class="profile-link" href="${urlUser(id)}" target="_blank" rel="noopener">Apri il profilo Instagram ↗</a><div class="profile-description">${semantic?'Somiglianza fra i vettori medi dei profili. Le coppie di testi sotto ogni voce sono esempi della vicinanza rilevata.':'Le connessioni rispettano la modalità selezionata. Seleziona un altro profilo per esplorare i suoi legami.'}</div>`;
     $('ranking-note').textContent=semantic?'Ogni punteggio è una cosine similarity fra i profili.':'Il valore indica il peso del legame nella direzione più frequente, se presente in entrambe le direzioni.';
   }else rows=[...network.nodes].sort((a,b)=>b.count-a.count||a.id.localeCompare(b.id)).map(n=>({...n,weight:n.count}));
   $('ranking').innerHTML=rows.slice(0,state.rankLimit).map((r,i)=>`<div><button class="rank-row" data-profile="${esc(r.id)}"><span class="rank-number">${String(i+1).padStart(2,'0')}</span><span class="avatar" style="box-shadow:inset 0 0 0 1px ${color(r.id)}55">${esc(initials(r.id))}</span><span class="rank-name"><b>@${esc(r.id)}</b><small>${esc(profiles.get(r.id)?.category||'Fuori elenco')}</small></span><span class="rank-value">${semantic&&id?r.weight.toFixed(2).replace('.',','):num(r.weight)}</span></button>${semantic&&id&&r.evidence?`<div class="evidence"><b>Esempio di caption affini · ${r.caption_score.toFixed(2).replace('.',',')}</b>${r.evidence.map(code=>{const p=postIndex.get(code);return p?`<a href="${urlPost(code)}" target="_blank" rel="noopener">@${esc(p.owner)}: ${esc(p.caption.slice(0,180))}… ↗</a>`:'';}).join('')}</div>`:''}</div>`).join('')||'<div class="profile-description">Nessun profilo per i filtri selezionati.</div>';
@@ -87,7 +93,7 @@ function chooseTopic(topic){state.topic=new Set(topic.posts);state.topicLabel=to
 function renderFeed(){
   const topics=state.view==='topics',semantic=state.view==='semantic';
   let posts=periodPosts;
-  if(!topics&&!semantic)posts=posts.filter(p=>p.authors.length>1);
+  if(!topics&&!semantic)posts=posts.filter(p=>p.authors.length>1&&(!ecosystemView()||p.authors.filter(monitored).length>1));
   if(state.selected)posts=posts.filter(p=>semantic?p.owner===state.selected:p.authors.includes(state.selected));
   if(!topics&&state.query){const q=state.query.toLowerCase().replace(/^@/,'');posts=posts.filter(p=>p.authors.some(a=>a.includes(q)));}
   if(!topics&&state.category)posts=posts.filter(p=>p.authors.some(a=>profiles.get(a)?.category===state.category));
@@ -147,12 +153,49 @@ $('updates-open').onclick=()=>{visitPostLimit=12;renderVisit();$('updates-dialog
 $('updates-more').onclick=()=>{visitPostLimit+=12;renderVisit();};
 $('updates-read').onclick=()=>{visitBaseline=collaborationCheckpoint(data.posts);visitReady=true;updateVisit();renderVisit();};
 $('updates-dialog').addEventListener('close',()=>$('updates-open').focus({preventScroll:true}));
+// Scope: the monitored ecosystem by default, external profiles on request.
+graphPanel.querySelector('.network-tools').insertAdjacentHTML('afterbegin','<div class="segmented scope-control" id="scope" role="group" aria-label="Profili mostrati"><button data-scope="ecosystem">Ecosistema monitorato</button><button data-scope="all">Con profili esterni</button></div>');
+$('scope').onclick=e=>{const b=e.target.closest('[data-scope]');if(!b||b.dataset.scope===state.scope)return;state.scope=b.dataset.scope;state.selected=null;state.feedLimit=9;firstFit=true;userMoved=false;render();updateUrl();};
+$('network-view').insertAdjacentHTML('beforebegin','<section class="readings-section" id="readings" aria-labelledby="readings-title"><div class="readings-heading"><span class="kicker">LETTURE DEL PERIODO</span><h2 id="readings-title">In breve, fra i profili monitorati</h2></div><div class="readings" id="readings-list"></div></section>');
+$('network-view').insertAdjacentHTML('afterend','<section class="matrix-section" id="matrix-section" aria-labelledby="matrix-title"><div class="section-heading"><div><span class="kicker">FRA CATEGORIE</span><h2 id="matrix-title">Quali mondi collaborano</h2></div><span class="small-label" id="matrix-note"></span></div><p class="section-intro">Ogni casella conta le coppie di profili monitorati che hanno pubblicato insieme nel periodo. Più è scura, più quei due mondi si incontrano.</p><div class="matrix-wrap"><table class="matrix" id="matrix"></table></div></section>');
+$('readings-list').onclick=e=>{const b=e.target.closest('[data-profile]');if(!b||!network.nodes.some(n=>n.id===b.dataset.profile))return;selectProfile(b.dataset.profile);document.querySelector('.network-panel').scrollIntoView({behavior:reducedMotion.matches?'auto':'smooth',block:'start'});};
+const SHORT={'Politico':'Politici','Partito Politico':'Partiti','Giornalista':'Giornalisti','Media tradizionali':'Media','New Media':'New media','Content Creator':'Creator','Altro':'Altro'};
+function renderReadings(collabs){
+  const show=state.view==='collab';$('readings').hidden=$('matrix-section').hidden=!show;
+  document.querySelectorAll('[data-scope]').forEach(b=>{const on=b.dataset.scope===state.scope;b.classList.toggle('selected',on);b.setAttribute('aria-pressed',String(on));});
+  if(!show)return;
+  const eg=ecosystemNetwork(collaborationNetwork(collabs,'direct'),monitored);
+  const pairs=new Map(),partners=new Map();
+  for(const e of eg.edges){
+    const key=[e.source,e.target].sort().join('\u0000');if(!pairs.has(key))pairs.set(key,{a:e.source,b:e.target,posts:new Set()});e.posts.forEach(id=>pairs.get(key).posts.add(id));
+    for(const[a,b]of[[e.source,e.target],[e.target,e.source]]){if(!partners.has(a))partners.set(a,new Set());partners.get(a).add(b);}
+  }
+  const cards=[];
+  const strongest=[...pairs.values()].sort((x,y)=>y.posts.size-x.posts.size||x.a.localeCompare(y.a))[0];
+  if(strongest)cards.push({value:`${num(strongest.posts.size)} post`,text:`Il legame più frequente è fra <b>@${esc(strongest.a)}</b> e <b>@${esc(strongest.b)}</b>.`,profile:strongest.a});
+  const ranked=[...partners].sort((x,y)=>y[1].size-x[1].size||x[0].localeCompare(y[0]));
+  const hub=ranked[0]&&ranked[0][1].size>1?ranked[0][0]:null;
+  if(hub)cards.push({value:`${num(ranked[0][1].size)} profili`,text:`<b>@${esc(hub)}</b> collabora con più profili monitorati di chiunque altro.`,profile:hub});
+  const bridge=[...partners].map(([id,set])=>[id,new Set([...set].map(catOf)).size]).filter(([id,k])=>k>1&&id!==hub).sort((x,y)=>y[1]-x[1]||(partners.get(y[0]).size-partners.get(x[0]).size)||x[0].localeCompare(y[0]))[0];
+  if(bridge)cards.push({value:`${num(bridge[1])} categorie`,text:`<b>@${esc(bridge[0])}</b> fa da ponte, i suoi legami toccano mondi diversi.`,profile:bridge[0]});
+  const cats=categoryPairs(eg,catOf),topPair=[...cats].sort((x,y)=>y[1]-x[1])[0];
+  const low=c=>esc(SHORT[c]||c).toLowerCase();
+  if(topPair){const[a,b]=topPair[0].split('|');cards.push({value:`${num(topPair[1])} legami`,text:a===b?`Le collaborazioni più frequenti restano fra <b>${low(a)}</b>.`:`Le collaborazioni più frequenti uniscono <b>${low(a)}</b> e <b>${low(b)}</b>.`});}
+  $('readings-list').innerHTML=cards.map(c=>c.profile?`<button class="reading" data-profile="${esc(c.profile)}"><strong>${c.value}</strong><span>${c.text}</span><small>Vedi sulla mappa ↗</small></button>`:`<div class="reading"><strong>${c.value}</strong><span>${c.text}</span></div>`).join('')||'<p class="empty-feed">Nessun legame fra profili monitorati in questo periodo. Prova un periodo più ampio.</p>';
+  // Lower triangle of the category matrix, diagonal included.
+  const present=CATEGORY_ORDER.filter(c=>eg.nodes.some(n=>catOf(n.id)===c)),max=Math.max(1,...cats.values());
+  $('matrix-note').textContent=`${num(eg.edges.length)} legami fra ${num(eg.nodes.length)} profili monitorati`;
+  $('matrix').innerHTML=present.length<2?'<caption>Servono legami fra almeno due categorie.</caption>':`<thead><tr><th></th>${present.map(c=>`<th scope="col">${esc(SHORT[c]||c)}</th>`).join('')}</tr></thead><tbody>${present.map((r,i)=>`<tr><th scope="row">${esc(SHORT[r]||r)}</th>${present.map((c,j)=>{if(j>i)return'<td class="void"></td>';const v=cats.get([r,c].sort().join('|'))||0;return`<td style="background:rgba(48,44,117,${v?(.08+.62*v/max).toFixed(3):0});color:${v/max>.5?'#fff':'var(--ink)'}" title="${esc(SHORT[r]||r)} e ${esc(SHORT[c]||c)}, ${num(v)} legami">${v?num(v):''}</td>`;}).join('')}</tr>`).join('')}</tbody>`;
+}
 let featuredMarkup='';
 function renderFeatured(){
   const featured=$('featured-profiles');
   featured.hidden=state.view!=='collab'||!network.nodes.length;$('updates-open').hidden=state.view!=='collab';
-  const leaders=[...network.nodes].sort((a,b)=>b.count-a.count||a.id.localeCompare(b.id)).slice(0,5);
-  const html='<span class="featured-label">PIÙ ATTIVI <small>Post condivisi</small></span>'+leaders.map(n=>`<button data-featured="${esc(n.id)}" aria-pressed="${n.id===state.selected}"><span>@${esc(n.id)}</span><b>${num(n.count)}</b></button>`).join('');
+  const eco=ecosystemView(),links=new Map();
+  if(eco)for(const e of network.edges)for(const[a,b]of[[e.source,e.target],[e.target,e.source]]){if(!links.has(a))links.set(a,new Set());links.get(a).add(b);}
+  const value=n=>eco?links.get(n.id)?.size||0:n.count;
+  const leaders=[...network.nodes].sort((a,b)=>value(b)-value(a)||b.count-a.count||a.id.localeCompare(b.id)).slice(0,5);
+  const html=`<span class="featured-label">PIÙ COLLEGATI <small>${eco?'Profili monitorati':'Post condivisi'}</small></span>`+leaders.map(n=>`<button data-featured="${esc(n.id)}" aria-pressed="${n.id===state.selected}"><span>@${esc(n.id)}</span><b>${num(value(n))}</b></button>`).join('');
   if(featuredMarkup!==html){featuredMarkup=html;const active=document.activeElement?.dataset.featured;featured.innerHTML=html;if(active)[...featured.querySelectorAll('button')].find(b=>b.dataset.featured===active)?.focus({preventScroll:true});}
 }
 $('featured-profiles').onclick=e=>{const b=e.target.closest('[data-featured]');if(b)selectProfile(b.dataset.featured);};
@@ -239,8 +282,8 @@ function renderGraph(){
 function neighbours(id=state.selected){return id?new Set([id,...network.edges.filter(e=>e.source===id||e.target===id).flatMap(e=>[e.source,e.target])]):null;}
 function updateGraphCaption(){
   renderFeatured();$('show-all').hidden=!state.selected;
-  $('graph-focus-label').textContent=state.selected?'@'+state.selected:state.view==='semantic'?'Idee vicine. Voci diverse.':'Tutto l’ecosistema, in una mappa.';
-  $('graph-focus-note').textContent=state.selected?`${num((neighbours()?.size||1)-1)} profili direttamente collegati${focusDepth===2?' · secondo livello visibile':''} · ${state.view==='collab'?'in primo piano sulla mappa completa':'seleziona un profilo per le affinità'}`:`${num(network.nodes.length)} profili e ${num(network.edges.length)} collegamenti · ingrandisci per leggere i nomi`;
+  $('graph-focus-label').textContent=state.selected?'@'+state.selected:state.view==='semantic'?'Idee vicine. Voci diverse.':ecosystemView()?'Chi collabora con chi, fra i profili monitorati.':'L’ecosistema e i profili esterni.';
+  $('graph-focus-note').textContent=state.selected?`${num((neighbours()?.size||1)-1)} profili direttamente collegati${focusDepth===2?' · secondo livello visibile':''} · ${state.view==='collab'?'in primo piano sulla mappa completa':'seleziona un profilo per le affinità'}`:`${num(network.nodes.length)} profili e ${num(network.edges.length)} collegamenti · passa sopra un profilo per vederne i legami`;
   if(!$('graph-footnote').textContent.includes('I gruppi'))$('graph-footnote').textContent+=' I gruppi raccolgono profili connessi dai post osservati.';
   $('graph-overview').textContent=state.view==='collab'?'Rimuovi evidenziazione':'← Tutta la rete';$('graph-overview').hidden=!state.selected;$('graph-depth').hidden=!state.selected||state.view==='collab';
   $('graph-depth').setAttribute('aria-pressed',String(focusDepth===2));$('graph-depth').textContent=focusDepth===2?'Solo collegamenti diretti':'Espandi al secondo livello';
@@ -267,7 +310,7 @@ function drawHalos(projected,hoverSet){
     const hull=d3.polygonHull(pts);if(!hull)continue;
     const active=hoverSet&&members.some(m=>hoverSet.has(m.id)),faded=hoverSet&&!active;
     ctx.beginPath();hull.forEach(([x,y],i)=>i?ctx.lineTo(x,y):ctx.moveTo(x,y));ctx.closePath();
-    ctx.fillStyle=ctx.strokeStyle=`rgba(48,44,117,${active?.07:faded?.018:.045})`;ctx.lineWidth=pad*2;ctx.stroke();ctx.fill();
+    ctx.fillStyle=ctx.strokeStyle=active?'#e6e3ef':faded?'#f1efee':'#ebe8ef';ctx.lineWidth=pad*2;ctx.stroke();ctx.fill();
     const xs=hull.map(p=>p[0]),ys=hull.map(p=>p[1]);
     groupHits.push({x:Math.min(...xs)-pad,y:Math.min(...ys)-pad,w:Math.max(...xs)-Math.min(...xs)+2*pad,h:Math.max(...ys)-Math.min(...ys)+2*pad,group:groups[group]});
   }
@@ -300,7 +343,7 @@ function draw(now=performance.now()){
   const candidates=[...sorted].sort((a,b)=>rank(b)-rank(a)||Number(!!b.hub)*(b.size||0)-Number(!!a.hub)*(a.size||0));
   const leaders=new Set([...sorted.slice(0,24).map(n=>n.id),...sorted.filter(n=>n.hub).map(n=>n.id)]);
   const max=labelsExpanded?150:state.selected?Math.max(22,Math.round(60*transform.k)):Math.max(32,Math.round(55*transform.k));
-  for(const n of candidates){const anchor=n.hub&&n.size>=8&&!hoverSet,priority=n.id===state.selected||n.id===hover,p=projected.get(n.id),r=radius(n);if(!priority&&!n.hub&&shown>=max)continue;if(hoverSet&&!hoverSet.has(n.id)&&!labelsExpanded)continue;if(!state.selected&&!labelsExpanded&&transform.k<.4&&!leaders.has(n.id)&&!priority)continue;if(p.x<10||p.x>usableWidth()-8||p.y<110||p.y>height-75)continue;
+  for(const n of candidates){const anchor=n.hub&&n.size>=8&&!hoverSet,priority=n.id===state.selected||n.id===hover,p=projected.get(n.id),r=radius(n);if(!priority&&!n.hub&&shown>=max)continue;if(hoverSet&&!hoverSet.has(n.id)&&!labelsExpanded)continue;if(!priority&&!anchor&&!labelsExpanded&&!hoverSet?.has(n.id)&&(n.deg||0)<(ecosystemView()?2:4))continue;if(!state.selected&&!labelsExpanded&&transform.k<.4&&!leaders.has(n.id)&&!priority)continue;if(p.x<10||p.x>usableWidth()-8||p.y<110||p.y>height-75)continue;
     const fontSize=priority?13:anchor?12:11;ctx.font=`${priority||anchor?650:500} ${fontSize}px Archivo,sans-serif`;ctx.textAlign='left';ctx.textBaseline='middle';
     const name=n.id.length>27?n.id.slice(0,25)+'…':n.id,w=ctx.measureText(name).width+14,h=priority?27:23;
     const placements=[{x:p.x-w/2,y:p.y+r+6},{x:p.x+r+7,y:p.y-h/2},{x:p.x-r-w-7,y:p.y-h/2},{x:p.x-w/2,y:p.y-r-h-6}];
@@ -326,7 +369,7 @@ selection.call(d3.drag().container(canvas).subject(e=>{const n=findNode(e.x,e.y)
 function camera(nodes,animate=true,cap=2){if(!nodes.length)return;const x0=Math.min(...nodes.map(n=>n.x-n.r)),x1=Math.max(...nodes.map(n=>n.x+n.r)),y0=Math.min(...nodes.map(n=>n.y-n.r)),y1=Math.max(...nodes.map(n=>n.y+n.r));const aw=Math.max(160,usableWidth()-85),ah=Math.max(160,height-190),k=Math.max(.05,Math.min(cap,.92/Math.max((x1-x0+70)/aw,(y1-y0+70)/ah)));const t=d3.zoomIdentity.translate(-(x0+x1)/2*k,-(y0+y1)/2*k).scale(k);(animate&&!reducedMotion.matches?selection.transition().duration(550).ease(d3.easeCubicInOut):selection).call(zoom.transform,t);}
 function fit(animate=true,whole=false){const near=state.selected&&state.view==='collab'?[...neighbours()].map(id=>positions.get(id)).filter(Boolean):!whole&&!state.selected&&usableWidth()<600&&groups[0]?.ids.length>2?groups[0].ids.map(id=>positions.get(id)).filter(Boolean):[];camera(near.length?near:[...positions.values()],animate,near.length?1.6:state.selected?1.5:1.8);}
 function focusOnSelection(animate=true){updateGraphCaption();fit(animate);scheduleFrame();}
-canvas.addEventListener('mousemove',e=>{const n=findNode(e.offsetX,e.offsetY);hover=n?.id||null;hoverEdge=n?null:findEdge(e.offsetX,e.offsetY);canvas.classList.toggle('pointing',!!n||!!hoverEdge);$('tooltip').hidden=!n&&!hoverEdge;if(n||hoverEdge){$('tooltip').innerHTML=n?`<b>@${esc(n.id)}</b><small>${esc(profiles.get(n.id)?.category||'Fuori elenco')} · ${num(n.count)} ${state.view==='semantic'?'caption originali':'post condivisi'}</small>`:`<b>@${esc(hoverEdge.source)} ${state.relation==='direct'?'→':'↔'} @${esc(hoverEdge.target)}</b><small>${num(hoverEdge.posts?.length||hoverEdge.weight)} post · clic per consultarli</small>`;$('tooltip').style.left=Math.max(8,Math.min(e.offsetX+18,width-245))+'px';$('tooltip').style.top=Math.max(8,Math.min(e.offsetY-65,height-80))+'px';}draw();scheduleFrame();});
+canvas.addEventListener('mousemove',e=>{const n=findNode(e.offsetX,e.offsetY);hover=n?.id||null;hoverEdge=n?null:findEdge(e.offsetX,e.offsetY);canvas.classList.toggle('pointing',!!n||!!hoverEdge);$('tooltip').hidden=!n&&!hoverEdge;if(n||hoverEdge){$('tooltip').innerHTML=n?`<b>@${esc(n.id)}</b><small>${esc(profiles.get(n.id)?.category||'Fuori elenco')} · ${num(n.count)} ${state.view==='semantic'?'caption originali':'post condivisi'}${n.external?` · collabora anche con ${num(n.external)} profili esterni`:''}</small>`:`<b>@${esc(hoverEdge.source)} ${state.relation==='direct'?'→':'↔'} @${esc(hoverEdge.target)}</b><small>${num(hoverEdge.posts?.length||hoverEdge.weight)} post · clic per consultarli</small>`;$('tooltip').style.left=Math.max(8,Math.min(e.offsetX+18,width-245))+'px';$('tooltip').style.top=Math.max(8,Math.min(e.offsetY-65,height-80))+'px';}draw();scheduleFrame();});
 canvas.addEventListener('mouseleave',()=>{hover=null;hoverEdge=null;$('tooltip').hidden=true;draw();});
 canvas.addEventListener('click',e=>{const n=findNode(e.offsetX,e.offsetY);if(n){selectProfile(n.id);return;}const edge=findEdge(e.offsetX,e.offsetY);if(edge){openConnection(edge.source,edge.target,state.relation==='direct');return;}if(state.selected){selectProfile(null);return;}const hit=groupHits.find(g=>e.offsetX>=g.x&&e.offsetX<=g.x+g.w&&e.offsetY>=g.y&&e.offsetY<=g.y+g.h);if(hit){userMoved=true;camera(hit.group.ids.map(id=>positions.get(id)));}});
 $('fit').onclick=()=>{userMoved=true;fit(true,true);};$('zoom-in').onclick=()=>{userMoved=true;selection.transition().duration(reducedMotion.matches?0:250).call(zoom.scaleBy,1.4);};$('zoom-out').onclick=()=>{userMoved=true;selection.transition().duration(reducedMotion.matches?0:250).call(zoom.scaleBy,1/1.4);};
@@ -387,6 +430,6 @@ async function refresh(){
   }catch{showNotice(data?'Connessione ai nuovi dati momentaneamente non disponibile. Restano visibili gli ultimi dati ricevuti.':'Non riesco a caricare i dati. Riproverò automaticamente.');$('fresh-title').textContent=data?'Ultimi dati ricevuti':'Dati non disponibili';$('status-dot').classList.add('stale');}
   finally{requesting=false;}
 }
-const params=new URLSearchParams(location.search);if(!cfg.collaborationsOnly&&['collab','semantic','topics'].includes(params.get('view')))state.view=params.get('view');if(['0','1','7','30'].includes(params.get('days')))state.days=+params.get('days');state.selected=params.get('profile');if(cfg.collaborationsOnly)updateUrl();
+const params=new URLSearchParams(location.search);if(!cfg.collaborationsOnly&&['collab','semantic','topics'].includes(params.get('view')))state.view=params.get('view');if(['0','1','7','30'].includes(params.get('days')))state.days=+params.get('days');if(params.get('scope')==='all')state.scope='all';state.selected=params.get('profile');if(cfg.collaborationsOnly)updateUrl();
 document.querySelectorAll('[data-days]').forEach(x=>{const active=+x.dataset.days===state.days;x.classList.toggle('selected',active);x.setAttribute('aria-pressed',String(active));});
 refresh();setInterval(()=>{if(!document.hidden)refresh();},cfg.refreshMs);document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh();});
