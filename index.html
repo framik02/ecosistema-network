@@ -5,10 +5,10 @@
   <meta name="theme-color" content="#302C75"><meta name="description" content="Esplora le collaborazioni osservate nell’ecosistema pubblico italiano.">
   <title>Collaborazioni · Liberi Network</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23302C75'/%3E%3Cpath d='M17 18v28h30' stroke='%23ffffff' fill='none' stroke-width='7'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="styles.css?v=c45c0426c38e161a">
-  <script src="vendor/d3.min.js?v=c45c0426c38e161a" defer></script>
-  <script src="config.js?v=c45c0426c38e161a" defer></script>
-  <script type="module" src="app.js?v=c45c0426c38e161a"></script>
+  <link rel="stylesheet" href="styles.css?v=ab64a41401cf4b4e">
+  <script src="vendor/d3.min.js?v=ab64a41401cf4b4e" defer></script>
+  <script src="config.js?v=ab64a41401cf4b4e" defer></script>
+  <script type="module" src="app.js?v=ab64a41401cf4b4e"></script>
 <meta name="robots" content="noindex,nofollow">
 </head>
 <body class="collaborations-only">
@@ -28,7 +28,7 @@
   <div class="topbar"><span>LIBERI INTELLIGENCE <span class="slash">/</span> ECOSISTEMA DIGITALE</span></div>
   <header class="page-heading"><div><div class="eyebrow">PERSONE, CONTENUTI, CONNESSIONI</div><h1 id="title">Le relazioni, <em>in chiaro.</em></h1><p id="subtitle">Chi pubblica con chi. Esplora la rete delle collaborazioni nell’ecosistema pubblico italiano.</p></div><div class="freshness"><span class="status-dot" id="status-dot"></span><div><strong id="fresh-title">Connessione ai dati</strong><span id="fresh-time">Caricamento dell’osservatorio…</span></div></div></header>
   <div class="notice" id="notice" role="status" hidden></div>
-  <section class="filterbar" aria-label="Filtri"><div class="period-control" aria-label="Periodo dei contenuti"><button data-days="1" class="selected" aria-pressed="true">24 ore</button><button data-days="7" aria-pressed="false">7 giorni</button><button data-days="30" aria-pressed="false">30 giorni</button><button data-days="0" aria-pressed="false">Storico</button></div><span class="period-note" id="period-note">Per data di pubblicazione</span><label class="searchbox"><span aria-hidden="true">⌕</span><input id="search" type="search" placeholder="Cerca un profilo…" aria-label="Cerca un profilo" autocomplete="off" list="profiles"><datalist id="profiles"></datalist></label><label class="sr-only" for="category">Categoria dei profili</label><select id="category"><option value="">Tutte le categorie</option></select></section>
+  <section class="filterbar" aria-label="Filtri"><div class="period-control" aria-label="Periodo dei contenuti"><button data-days="1" aria-pressed="false">24 ore</button><button data-days="7" class="selected" aria-pressed="true">7 giorni</button><button data-days="30" aria-pressed="false">30 giorni</button><button data-days="0" aria-pressed="false">Storico</button></div><span class="period-note" id="period-note">Per data di pubblicazione</span><label class="searchbox"><span aria-hidden="true">⌕</span><input id="search" type="search" placeholder="Cerca un profilo…" aria-label="Cerca un profilo" autocomplete="off" list="profiles"><datalist id="profiles"></datalist></label><label class="sr-only" for="category">Categoria dei profili</label><select id="category"><option value="">Tutte le categorie</option></select></section>
   <section class="metrics" aria-label="Indicatori del periodo" id="metrics"></section>
   <section id="network-view" class="network-layout">
     <div class="panel network-panel"><div class="panel-heading"><div><span class="kicker" id="network-kicker">MAPPA DELLE RELAZIONI</span><h2 id="network-title">La rete delle collaborazioni</h2></div><span class="small-label" id="graph-count"></span></div>
