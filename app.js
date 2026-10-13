@@ -1,4 +1,4 @@
-import {collaborationNetwork,filterNetwork,connectedGroups,focusNetwork,connectionPostIds,collaborationCheckpoint,collaborationChanges,validCheckpoint} from './network.js?v=3d5512243cceedcb';
+import {collaborationNetwork,filterNetwork,connectedGroups,focusNetwork,connectionPostIds,collaborationCheckpoint,collaborationChanges,validCheckpoint} from './network.js?v=c45c0426c38e161a';
 const $=id=>document.getElementById(id), esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const num=n=>(n||0).toLocaleString('it-IT'), date=s=>s?new Date(s).toLocaleString('it-IT',{timeZone:'Europe/Rome',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'Non disponibile';
 const urlPost=id=>`https://www.instagram.com/p/${encodeURIComponent(id)}/`, urlUser=id=>`https://www.instagram.com/${encodeURIComponent(id)}/`;
@@ -30,7 +30,7 @@ function render(){
   $('search').disabled=topics;$('category').disabled=topics;
   $('network-title').textContent=semantic?'La rete delle affinità semantiche':'La rete delle collaborazioni';
   $('network-kicker').textContent=semantic?'SIMILITUDINE TRA CAPTION':'MAPPA DELLE RELAZIONI';
-  $('graph-footnote').textContent=semantic?'La vicinanza deriva dai contenuti originali di ciascun profilo (almeno 2 caption). Non implica accordo o collaborazione.':state.relation==='direct'?'Le frecce vanno dall’autore principale ai collaboratori. La dimensione dei nodi indica i post condivisi osservati.':'Ogni linea indica almeno un post in comune. Due coautori possono essere collegati tramite un terzo autore.';
+  $('graph-footnote').textContent=semantic?'La vicinanza deriva dai contenuti originali di ciascun profilo (almeno 2 caption). Non implica accordo o collaborazione.':state.relation==='direct'?'Le frecce vanno dall’autore principale ai collaboratori. La dimensione dei nodi indica con quanti profili diversi collabora ciascuno; le coppie isolate restano più chiare.':'Ogni linea indica almeno un post in comune. Due coautori possono essere collegati tramite un terzo autore.';
   const cutoff=state.days?Date.now()-state.days*86400000:0;
   periodPosts=data.posts.filter(p=>new Date(p.published).getTime()>=cutoff);
   const collabs=periodPosts.filter(p=>p.authors.length>1);
@@ -42,7 +42,7 @@ function render(){
   const q=state.query.toLowerCase().replace(/^@/,'');
   const selectedPosts=collabs.filter(p=>(!state.category||p.authors.some(a=>profiles.get(a)?.category===state.category))&&(!q||p.authors.some(a=>a.includes(q))));
   const external=network.nodes.filter(n=>!profiles.get(n.id)?.monitored).length;
-  $('metrics').innerHTML=topics?metric('Caption analizzate',sp?.caption_count,'Nel periodo selezionato','≋')+metric('Temi emersi',sp?.topics?.length,'Raggruppamenti automatici','◌')+metric('Cornici suggerite',sp?.narratives?.length,'Ipotesi da verificare nei testi','↗')+metric('Profili confrontabili',sp?.nodes?.length,'Con almeno 2 caption originali','◎'):semantic?metric('Profili connessi',network.nodes.length,'Con affinità sopra la soglia','◎')+metric('Affinità individuate',network.edges.length,'Connessioni visibili nella mappa','↗')+metric('Caption analizzate',sp?.caption_count,'Testi del periodo, non solo collab','≋')+metric('Soglia di similarità',state.threshold.toFixed(2).replace('.',','),'Cosine similarity, non probabilità','≈'):metric('Post in collaborazione',selectedPosts.length,'Contenuti condivisi nel periodo','↗')+metric('Profili nella rete',network.nodes.length,'Autori e collaboratori osservati','◎')+metric('Connessioni',network.edges.length,state.relation==='direct'?'Relazioni autore → collaboratore':'Coppie presenti nello stesso post','⌘')+metric('Profili fuori elenco',external,'Emersi attraverso collaborazioni','＋');
+  $('metrics').innerHTML=topics?metric('Caption analizzate',sp?.caption_count,'Nel periodo selezionato','≋')+metric('Temi emersi',sp?.topics?.length,'Raggruppamenti automatici','◌')+metric('Cornici suggerite',sp?.narratives?.length,'Ipotesi da verificare nei testi','↗')+metric('Profili confrontabili',sp?.nodes?.length,'Con almeno 2 caption originali','◎'):semantic?metric('Profili connessi',network.nodes.length,'Con affinità sopra la soglia','◎')+metric('Affinità individuate',network.edges.length,'Connessioni visibili nella mappa','↗')+metric('Caption analizzate',sp?.caption_count,'Testi del periodo, non solo collab','≋')+metric('Soglia di similarità',state.threshold.toFixed(2).replace('.',','),'Cosine similarity, non probabilità','≈'):metric('Post in collaborazione',selectedPosts.length,'Contenuti condivisi nel periodo','↗')+metric('Profili nella rete',network.nodes.length,'Autori e collaboratori osservati','◎')+metric('Connessioni',network.edges.length,state.relation==='direct'?'Relazioni autore → collaboratore':'Coppie presenti nello stesso post','↔')+metric('Profili fuori elenco',external,'Emersi attraverso collaborazioni','＋');
   $('graph-count').textContent=`${num(network.nodes.length)} profili · ${num(network.edges.length)} legami`;
   const cats=[...new Set(network.nodes.map(n=>profiles.get(n.id)?.category||'Altro'))];
   $('legend').innerHTML=cats.map(c=>`<span><i style="background:${COLORS[c]||COLORS.Altro}"></i>${esc(c)}</span>`).join('');
@@ -96,7 +96,7 @@ function renderFeed(){
   $('feed-title').textContent=state.topic&&topics?state.topicLabel:state.selected?'Contenuti di @'+state.selected:topics?'Le caption da esplorare':semantic?'I contenuti alla base della rete':'Le collaborazioni più recenti';
   $('feed-kicker').textContent=state.topic&&topics?'CAPTION DEL GRUPPO SELEZIONATO':'CONTENUTI OSSERVATI';
   $('clear-topic').hidden=!state.topic||!topics;$('feed-count').textContent=`${num(posts.length)} contenuti`;
-  $('feed').innerHTML=posts.slice(0,state.feedLimit).map(p=>`<article class="post-card"><div class="post-head"><span class="avatar">${esc(initials(p.owner||'?'))}</span><div><a class="post-author" href="${urlUser(p.owner||'')}" target="_blank" rel="noopener">${p.owner?'@'+esc(p.owner):'Autore non identificato'}</a><small>${date(p.published)}</small></div></div>${cfg.collaborationsOnly?'':`<p class="post-caption">${esc(p.caption||'Caption non disponibile per questo contenuto.')}</p>`}<div class="post-partners">${p.authors.length>1?'Con '+p.authors.filter(a=>a!==p.owner).map(a=>'@'+esc(a)).join(' · '):'Contenuto originale del profilo'}</div><div class="post-bottom"><a href="${urlPost(p.id)}" target="_blank" rel="noopener">Leggi il post completo ↗</a><span>INSTAGRAM</span></div></article>`).join('')||'<p class="empty-feed">Nessun contenuto per questa selezione. Prova a cambiare periodo o filtri.</p>';
+  $('feed').innerHTML=posts.slice(0,state.feedLimit).map(p=>`<article class="post-card"><div class="post-head"><span class="avatar" style="border-color:${p.owner?color(p.owner):'#9AA0A6'}">${esc(initials(p.owner||'?'))}</span><div>${p.owner?`<button class="post-author" data-focus="${esc(p.owner)}" title="Mostra @${esc(p.owner)} sulla mappa">@${esc(p.owner)}</button>`:'<span class="post-author">Autore non identificato</span>'}<small>${date(p.published)}</small></div></div>${cfg.collaborationsOnly?'':`<p class="post-caption">${esc(p.caption||'Caption non disponibile per questo contenuto.')}</p>`}<div class="post-partners">${p.authors.length>1?'<span>Con</span>'+p.authors.filter(a=>a!==p.owner).map(a=>`<button data-focus="${esc(a)}" title="Mostra @${esc(a)} sulla mappa"><i style="background:${color(a)}"></i>@${esc(a)}</button>`).join(''):'Contenuto originale del profilo'}</div><div class="post-bottom"><a href="${urlPost(p.id)}" target="_blank" rel="noopener">Leggi il post completo ↗</a><span>INSTAGRAM</span></div></article>`).join('')||'<p class="empty-feed">Nessun contenuto per questa selezione. Prova a cambiare periodo o filtri.</p>';
   $('more-posts').hidden=posts.length<=state.feedLimit;
 }
 
@@ -172,31 +172,43 @@ function radius(n){return Math.max(5,Math.min(44,n.r*Math.pow(transform.k,.8)));
 
 function arrangeOverview(force=false){
   const next=new Map(),components=connectedGroups(network),fresh=force||!overview.size;
-  const nodeRadius=n=>Math.min(46,10+Math.sqrt(n.count)*6);
+  const partners=new Map(network.nodes.map(n=>[n.id,new Set()]));
+  for(const e of network.edges){partners.get(e.source)?.add(e.target);partners.get(e.target)?.add(e.source);}
+  const meta=new Map();
+  components.forEach((g,gi)=>{g.hub=[...g.ids].sort((a,b)=>partners.get(b).size-partners.get(a).size||a.localeCompare(b))[0];for(const id of g.ids)meta.set(id,{deg:partners.get(id).size,group:gi,size:g.ids.length,hub:g.ids.length>2&&id===g.hub});});
+  // Size follows distinct collaborators; isolated pairs stay small, in the background.
+  const nodeRadius=n=>{const m=meta.get(n.id);return m.size===2?7:Math.min(46,9+Math.sqrt(m.deg-1)*7);};
+  const withMeta=n=>({...n,...meta.get(n.id),r:nodeRadius(n)});
   if(!fresh){
-    for(const n of network.nodes){const old=overview.get(n.id);if(old)next.set(n.id,{...old,...n,r:nodeRadius(n)});}
+    for(const n of network.nodes){const old=overview.get(n.id);if(old)next.set(n.id,{...old,...withMeta(n)});}
     for(const n of network.nodes){
       if(next.has(n.id))continue;
       const edge=network.edges.find(e=>(e.source===n.id&&next.has(e.target))||(e.target===n.id&&next.has(e.source)));
       const near=edge?next.get(edge.source===n.id?edge.target:edge.source):null;
       const anchor=near||{x:Math.max(0,...[...next.values()].map(p=>p.x))+70,y:0};
       let point;
-      for(let i=0;i<300;i++){const a=i*2.39996,r=35+Math.sqrt(i)*12;point={...n,x:anchor.x+Math.cos(a)*r,y:anchor.y+Math.sin(a)*r,r:nodeRadius(n)};if(![...next.values()].some(p=>Math.hypot(p.x-point.x,p.y-point.y)<p.r+point.r+14))break;}
+      for(let i=0;i<300;i++){const a=i*2.39996,r=35+Math.sqrt(i)*12;point={...withMeta(n),x:anchor.x+Math.cos(a)*r,y:anchor.y+Math.sin(a)*r};if(![...next.values()].some(p=>Math.hypot(p.x-point.x,p.y-point.y)<p.r+point.r+14))break;}
       next.set(n.id,point);
     }
   }else{
-    // One organic force layout: all profiles share the same continuous space.
+    // One continuous map, but every connected group keeps its own territory:
+    // groups are packed around the largest one, so lines never cross unrelated profiles.
     const aspect=Math.max(.55,Math.min(2.2,usableWidth()/Math.max(300,height-190)));
-    const prominent=new Set([...network.nodes].sort((a,b)=>b.count-a.count||a.id.localeCompare(b.id)).slice(0,18).map(n=>n.id));
-    const ordered=[...network.nodes].sort((a,b)=>a.id.localeCompare(b.id));
-    const nodes=ordered.map((n,i)=>{const a=i*2.399963,r=Math.sqrt(i+1)*43;return{...n,r:nodeRadius(n),x:Math.cos(a)*r*Math.sqrt(aspect),y:Math.sin(a)*r/Math.sqrt(aspect)};});
+    const prominent=new Set([...network.nodes].sort((a,b)=>meta.get(b.id).deg-meta.get(a.id).deg||a.id.localeCompare(b.id)).slice(0,18).map(n=>n.id));
+    const room=n=>nodeRadius(n)+(prominent.has(n.id)||meta.get(n.id).hub?48:14);
+    const byId=new Map(network.nodes.map(n=>[n.id,n]));
+    const territories=components.map((g,i)=>({i,r:Math.sqrt(g.ids.reduce((s,id)=>s+room(byId.get(id))**2,0))*1.45+(g.ids.length>2?70:34)}));
+    d3.packSiblings(territories);
+    const centre=territories.map(t=>({x:t.x*Math.max(1,aspect*.85),y:t.y*Math.max(1,1/aspect)}));
+    const nodes=[];
+    components.forEach((g,gi)=>g.ids.forEach((id,i)=>{const a=i*2.399963,r=Math.sqrt(i)*18;nodes.push({...withMeta(byId.get(id)),x:centre[gi].x+Math.cos(a)*r,y:centre[gi].y+Math.sin(a)*r});}));
     const links=network.edges.map(e=>({...e}));
     const simulation=d3.forceSimulation(nodes).randomSource(d3.randomLcg(.42))
-      .force('link',d3.forceLink(links).id(n=>n.id).distance(e=>100+e.source.r+e.target.r).strength(.32))
-      .force('charge',d3.forceManyBody().strength(-360).distanceMax(450))
-      .force('collision',d3.forceCollide(n=>n.r+(prominent.has(n.id)?115:22)).iterations(3))
-      .force('x',d3.forceX().strength(.022/aspect))
-      .force('y',d3.forceY().strength(.022*aspect)).stop();
+      .force('link',d3.forceLink(links).id(n=>n.id).distance(e=>30+e.source.r+e.target.r).strength(.7))
+      .force('charge',d3.forceManyBody().strength(-90).distanceMax(140))
+      .force('collision',d3.forceCollide(room).iterations(3))
+      .force('x',d3.forceX(n=>centre[n.group].x).strength(.09))
+      .force('y',d3.forceY(n=>centre[n.group].y).strength(.09)).stop();
     simulation.tick(320);
     for(const n of nodes)next.set(n.id,n);
   }
@@ -226,9 +238,9 @@ function renderGraph(){
 }
 function neighbours(id=state.selected){return id?new Set([id,...network.edges.filter(e=>e.source===id||e.target===id).flatMap(e=>[e.source,e.target])]):null;}
 function updateGraphCaption(){
-  renderFeatured();
+  renderFeatured();$('show-all').hidden=!state.selected;
   $('graph-focus-label').textContent=state.selected?'@'+state.selected:state.view==='semantic'?'Idee vicine. Voci diverse.':'Tutto l’ecosistema, in una mappa.';
-  $('graph-focus-note').textContent=state.selected?`${num((neighbours()?.size||1)-1)} profili direttamente collegati${focusDepth===2?' · secondo livello visibile':''} · ${state.view==='collab'?'in evidenza sulla mappa completa':'seleziona un profilo per le affinità'}`:`${num(network.nodes.length)} profili e ${num(network.edges.length)} collegamenti · ingrandisci per leggere i nomi`;
+  $('graph-focus-note').textContent=state.selected?`${num((neighbours()?.size||1)-1)} profili direttamente collegati${focusDepth===2?' · secondo livello visibile':''} · ${state.view==='collab'?'in primo piano sulla mappa completa':'seleziona un profilo per le affinità'}`:`${num(network.nodes.length)} profili e ${num(network.edges.length)} collegamenti · ingrandisci per leggere i nomi`;
   if(!$('graph-footnote').textContent.includes('I gruppi'))$('graph-footnote').textContent+=' I gruppi raccolgono profili connessi dai post osservati.';
   $('graph-overview').textContent=state.view==='collab'?'Rimuovi evidenziazione':'← Tutta la rete';$('graph-overview').hidden=!state.selected;$('graph-depth').hidden=!state.selected||state.view==='collab';
   $('graph-depth').setAttribute('aria-pressed',String(focusDepth===2));$('graph-depth').textContent=focusDepth===2?'Solo collegamenti diretti':'Espandi al secondo livello';
@@ -236,14 +248,39 @@ function updateGraphCaption(){
 function curve(s,t){const dx=t.x-s.x,dy=t.y-s.y;return{x:(s.x+t.x)/2-dy*.09,y:(s.y+t.y)/2+dx*.09};}
 function onCurve(s,c,t,q){const a=1-q;return{x:a*a*s.x+2*a*q*c.x+q*q*t.x,y:a*a*s.y+2*a*q*c.y+q*q*t.y};}
 function edgeKey(e){return JSON.stringify([e.source,e.target]);}
+// Squared paper that pans and zooms with the map; spacing doubles or halves to stay legible.
+function drawGrid(){
+  const[ox,oy]=origin();let step=40*transform.k;while(step<28)step*=2;while(step>84)step/=2;
+  const x0=((ox+transform.x)%step+step)%step,y0=((oy+transform.y)%step+step)%step;
+  ctx.beginPath();for(let x=x0;x<width;x+=step){ctx.moveTo(Math.round(x)+.5,0);ctx.lineTo(Math.round(x)+.5,height);}for(let y=y0;y<height;y+=step){ctx.moveTo(0,Math.round(y)+.5);ctx.lineTo(width,Math.round(y)+.5);}
+  ctx.strokeStyle='rgba(48,44,117,.035)';ctx.lineWidth=1;ctx.stroke();
+}
+// A soft territory behind every group of 3+ profiles: one map, readable zones.
+function drawHalos(projected,hoverSet){
+  if(state.view!=='collab')return;
+  const byGroup=new Map();
+  for(const {x,y,node}of projected.values()){if(node.size>2&&node.group!=null){if(!byGroup.has(node.group))byGroup.set(node.group,[]);byGroup.get(node.group).push({x,y,r:radius(node),id:node.id});}}
+  ctx.lineJoin='round';ctx.lineCap='round';
+  for(const [group,members]of byGroup){
+    const pad=Math.max(16,Math.min(34,22*Math.sqrt(transform.k)));
+    const pts=members.flatMap(m=>[[m.x-m.r,m.y-m.r],[m.x+m.r,m.y-m.r],[m.x-m.r,m.y+m.r],[m.x+m.r,m.y+m.r]]);
+    const hull=d3.polygonHull(pts);if(!hull)continue;
+    const active=hoverSet&&members.some(m=>hoverSet.has(m.id)),faded=hoverSet&&!active;
+    ctx.beginPath();hull.forEach(([x,y],i)=>i?ctx.lineTo(x,y):ctx.moveTo(x,y));ctx.closePath();
+    ctx.fillStyle=ctx.strokeStyle=`rgba(48,44,117,${active?.07:faded?.018:.045})`;ctx.lineWidth=pad*2;ctx.stroke();ctx.fill();
+    const xs=hull.map(p=>p[0]),ys=hull.map(p=>p[1]);
+    groupHits.push({x:Math.min(...xs)-pad,y:Math.min(...ys)-pad,w:Math.max(...xs)-Math.min(...xs)+2*pad,h:Math.max(...ys)-Math.min(...ys)+2*pad,group:groups[group]});
+  }
+}
 function draw(now=performance.now()){
-  if(!ctx||!graphVisible)return;ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,width,height);groupHits=[];labelHits=[];
+  if(!ctx||!graphVisible)return;ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,width,height);groupHits=[];labelHits=[];drawGrid();
   const projected=new Map([...positions].map(([id,n])=>[id,{...coordinates(n),node:n}]));
-  const sorted=[...positions.values()].sort((a,b)=>b.count-a.count||a.id.localeCompare(b.id));
+  const sorted=[...positions.values()].sort((a,b)=>(b.deg||0)-(a.deg||0)||b.count-a.count||a.id.localeCompare(b.id));
   const hoverSet=hover?neighbours(hover):state.selected?neighbours():null;
+  drawHalos(projected,hoverSet);
   for(const e of edges){const s=projected.get(e.source),t=projected.get(e.target);if(!s||!t)continue;
     const incident=!hover&&state.selected&&(e.source===state.selected||e.target===state.selected),pointed=hoverEdge&&edgeKey(hoverEdge)===edgeKey(e),hovered=hover&&(e.source===hover||e.target===hover),highlight=pointed||hovered||incident;
-    const opacity=hover&&!hovered?.07:state.selected&&!incident&&!hover?.10:highlight?.92:.24;
+    const opacity=hover&&!hovered?.07:state.selected&&!incident&&!hover?.10:highlight?.92:s.node.size===2?.13:.26;
     ctx.strokeStyle=pointed?'#302c75':alpha(highlight?'#302c75':'#514d87',opacity);ctx.lineWidth=pointed?4.2:Math.min(highlight?5:3.2,(highlight?1.4:.5)+Math.sqrt(e.weight)*.55);ctx.lineCap='round';
     const c=curve(s,t);ctx.beginPath();ctx.moveTo(s.x,s.y);ctx.quadraticCurveTo(c.x,c.y,t.x,t.y);ctx.stroke();
     if(state.view==='collab'&&state.relation==='direct'&&(highlight||transform.k>.8)){const tip=onCurve(s,c,t,.82),before=onCurve(s,c,t,.76),a=Math.atan2(tip.y-before.y,tip.x-before.x),z=highlight?5:3;ctx.fillStyle=ctx.strokeStyle;ctx.beginPath();ctx.moveTo(tip.x,tip.y);ctx.lineTo(tip.x-z*Math.cos(a-.5),tip.y-z*Math.sin(a-.5));ctx.lineTo(tip.x-z*Math.cos(a+.5),tip.y-z*Math.sin(a+.5));ctx.closePath();ctx.fill();}
@@ -251,7 +288,7 @@ function draw(now=performance.now()){
   }
   for(const n of [...sorted].reverse()){
     const p=projected.get(n.id),r=radius(n),selected=n.id===state.selected,col=glow(n.id);if(p.x<-60||p.x>width+60||p.y<-60||p.y>height+60)continue;
-    ctx.globalAlpha=hoverSet&&!hoverSet.has(n.id)?.3:1;
+    ctx.globalAlpha=hoverSet&&!hoverSet.has(n.id)?.3:n.size===2&&!hoverSet?.55:1;
     if(selected||n.id===hover){ctx.fillStyle=alpha(col,.45);ctx.fillRect(p.x-r+3,p.y-r+3,2*r,2*r);}
     else{ctx.fillStyle='#302c7510';ctx.fillRect(p.x-r+2,p.y-r+2,2*r,2*r);}
     rounded(p.x-r,p.y-r,2*r,2*r,1);ctx.fillStyle=selected?'#302c75':n.count>=5?'#eeedf8':'#fcfbf9';ctx.fill();ctx.strokeStyle=selected||n.id===hover?'#302c75':alpha(col,.9);ctx.lineWidth=selected?2.2:1.4;ctx.stroke();
@@ -259,15 +296,18 @@ function draw(now=performance.now()){
     else{ctx.fillStyle=alpha(col,.75);ctx.fillRect(p.x-1.5,p.y-1.5,3,3);}
   }
   ctx.globalAlpha=1;const boxes=[];let shown=0;
-  const candidates=[...sorted].sort((a,b)=>(Number(b.id===state.selected||b.id===hover)*2+Number(hoverSet?.has(b.id)))-(Number(a.id===state.selected||a.id===hover)*2+Number(hoverSet?.has(a.id))));
-  const leaders=new Set(sorted.slice(0,24).map(n=>n.id));
+  const rank=n=>Number(n.id===state.selected||n.id===hover)*4+Number(!!hoverSet?.has(n.id))*2+Number(!!n.hub);
+  const candidates=[...sorted].sort((a,b)=>rank(b)-rank(a)||Number(!!b.hub)*(b.size||0)-Number(!!a.hub)*(a.size||0));
+  const leaders=new Set([...sorted.slice(0,24).map(n=>n.id),...sorted.filter(n=>n.hub).map(n=>n.id)]);
   const max=labelsExpanded?150:state.selected?Math.max(22,Math.round(60*transform.k)):Math.max(32,Math.round(55*transform.k));
-  for(const n of candidates){const priority=n.id===state.selected||n.id===hover,p=projected.get(n.id),r=radius(n);if(!priority&&shown>=max)continue;if(hoverSet&&!hoverSet.has(n.id)&&!labelsExpanded)continue;if(!state.selected&&!labelsExpanded&&transform.k<.4&&!leaders.has(n.id)&&!priority)continue;if(p.x<10||p.x>usableWidth()-8||p.y<110||p.y>height-75)continue;
-    const fontSize=priority?13:11;ctx.font=`${priority?650:500} ${fontSize}px Archivo,sans-serif`;ctx.textAlign='left';ctx.textBaseline='middle';
+  for(const n of candidates){const anchor=n.hub&&n.size>=8&&!hoverSet,priority=n.id===state.selected||n.id===hover,p=projected.get(n.id),r=radius(n);if(!priority&&!n.hub&&shown>=max)continue;if(hoverSet&&!hoverSet.has(n.id)&&!labelsExpanded)continue;if(!state.selected&&!labelsExpanded&&transform.k<.4&&!leaders.has(n.id)&&!priority)continue;if(p.x<10||p.x>usableWidth()-8||p.y<110||p.y>height-75)continue;
+    const fontSize=priority?13:anchor?12:11;ctx.font=`${priority||anchor?650:500} ${fontSize}px Archivo,sans-serif`;ctx.textAlign='left';ctx.textBaseline='middle';
     const name=n.id.length>27?n.id.slice(0,25)+'…':n.id,w=ctx.measureText(name).width+14,h=priority?27:23;
     const placements=[{x:p.x-w/2,y:p.y+r+6},{x:p.x+r+7,y:p.y-h/2},{x:p.x-r-w-7,y:p.y-h/2},{x:p.x-w/2,y:p.y-r-h-6}];
     if(leaders.has(n.id)||priority)for(const gap of [22,42,62])placements.push({x:p.x-w/2,y:p.y+r+gap},{x:p.x-w/2,y:p.y-r-h-gap},{x:p.x+r+gap,y:p.y-h/2},{x:p.x-r-w-gap,y:p.y-h/2});
-    const slot=placements.find(b=>![...projected.values()].some(q=>q.node.id!==n.id&&b.x<q.x+radius(q.node)+3&&b.x+w>q.x-radius(q.node)-3&&b.y<q.y+radius(q.node)+3&&b.y+h>q.y-radius(q.node)-3)&&b.x>7&&b.x+w<usableWidth()-7&&b.y>105&&b.y+h<height-64&&!boxes.some(a=>b.x<a.x+a.w+5&&b.x+w+5>a.x&&b.y<a.y+a.h+4&&b.y+h+4>a.y));if(!slot&&!priority)continue;const b={...(slot||placements[0]),w,h};
+    const slot=placements.find(b=>![...projected.values()].some(q=>q.node.id!==n.id&&b.x<q.x+radius(q.node)+3&&b.x+w>q.x-radius(q.node)-3&&b.y<q.y+radius(q.node)+3&&b.y+h>q.y-radius(q.node)-3)&&b.x>7&&b.x+w<usableWidth()-7&&b.y>105&&b.y+h<height-64&&!boxes.some(a=>b.x<a.x+a.w+5&&b.x+w+5>a.x&&b.y<a.y+a.h+4&&b.y+h+4>a.y));const clear=c=>c.x>7&&c.x+w<usableWidth()-7&&c.y>105&&c.y+h<height-64&&!boxes.some(o=>c.x<o.x+o.w+5&&c.x+w+5>o.x&&c.y<o.y+o.h+4&&c.y+h+4>o.y);
+    // Anchors may cover nodes, never another name.
+    const fallback=anchor&&!slot?placements.find(clear):null;if(!slot&&!priority&&!fallback)continue;const b={...(slot||fallback||placements[0]),w,h};
     boxes.push(b);shown++;if(slot&&placements.indexOf(slot)>3){ctx.strokeStyle='#302c7550';ctx.lineWidth=.7;ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(Math.max(b.x,Math.min(p.x,b.x+w)),Math.max(b.y,Math.min(p.y,b.y+h)));ctx.stroke();}rounded(b.x,b.y,w,h,3);ctx.fillStyle=priority?'#302c75':'#fcfbf9f5';ctx.fill();ctx.strokeStyle=priority?'#302c75':'#d9d5e2';ctx.lineWidth=1;ctx.stroke();ctx.fillStyle=priority?'#fff':'#34303e';ctx.fillText(name,b.x+7,b.y+h/2);labelHits.push({...b,id:n.id});
   }
 }
@@ -284,12 +324,12 @@ selection.call(d3.drag().container(canvas).subject(e=>{const n=findNode(e.x,e.y)
  .on('start',()=>{userMoved=true;firstFit=false;focusRequest=false;})
  .on('drag',e=>{const[oX,oY]=origin();e.subject.node.x=(e.x-oX-transform.x)/transform.k;e.subject.node.y=(e.y-oY-transform.y)/transform.k;if(!state.selected||state.view==='collab')overview.set(e.subject.node.id,{...e.subject.node});draw();}));
 function camera(nodes,animate=true,cap=2){if(!nodes.length)return;const x0=Math.min(...nodes.map(n=>n.x-n.r)),x1=Math.max(...nodes.map(n=>n.x+n.r)),y0=Math.min(...nodes.map(n=>n.y-n.r)),y1=Math.max(...nodes.map(n=>n.y+n.r));const aw=Math.max(160,usableWidth()-85),ah=Math.max(160,height-190),k=Math.max(.05,Math.min(cap,.92/Math.max((x1-x0+70)/aw,(y1-y0+70)/ah)));const t=d3.zoomIdentity.translate(-(x0+x1)/2*k,-(y0+y1)/2*k).scale(k);(animate&&!reducedMotion.matches?selection.transition().duration(550).ease(d3.easeCubicInOut):selection).call(zoom.transform,t);}
-function fit(animate=true){camera([...positions.values()],animate,state.selected?1.5:1.8);}
+function fit(animate=true,whole=false){const near=state.selected&&state.view==='collab'?[...neighbours()].map(id=>positions.get(id)).filter(Boolean):!whole&&!state.selected&&usableWidth()<600&&groups[0]?.ids.length>2?groups[0].ids.map(id=>positions.get(id)).filter(Boolean):[];camera(near.length?near:[...positions.values()],animate,near.length?1.6:state.selected?1.5:1.8);}
 function focusOnSelection(animate=true){updateGraphCaption();fit(animate);scheduleFrame();}
 canvas.addEventListener('mousemove',e=>{const n=findNode(e.offsetX,e.offsetY);hover=n?.id||null;hoverEdge=n?null:findEdge(e.offsetX,e.offsetY);canvas.classList.toggle('pointing',!!n||!!hoverEdge);$('tooltip').hidden=!n&&!hoverEdge;if(n||hoverEdge){$('tooltip').innerHTML=n?`<b>@${esc(n.id)}</b><small>${esc(profiles.get(n.id)?.category||'Fuori elenco')} · ${num(n.count)} ${state.view==='semantic'?'caption originali':'post condivisi'}</small>`:`<b>@${esc(hoverEdge.source)} ${state.relation==='direct'?'→':'↔'} @${esc(hoverEdge.target)}</b><small>${num(hoverEdge.posts?.length||hoverEdge.weight)} post · clic per consultarli</small>`;$('tooltip').style.left=Math.max(8,Math.min(e.offsetX+18,width-245))+'px';$('tooltip').style.top=Math.max(8,Math.min(e.offsetY-65,height-80))+'px';}draw();scheduleFrame();});
 canvas.addEventListener('mouseleave',()=>{hover=null;hoverEdge=null;$('tooltip').hidden=true;draw();});
 canvas.addEventListener('click',e=>{const n=findNode(e.offsetX,e.offsetY);if(n){selectProfile(n.id);return;}const edge=findEdge(e.offsetX,e.offsetY);if(edge){openConnection(edge.source,edge.target,state.relation==='direct');return;}if(state.selected){selectProfile(null);return;}const hit=groupHits.find(g=>e.offsetX>=g.x&&e.offsetX<=g.x+g.w&&e.offsetY>=g.y&&e.offsetY<=g.y+g.h);if(hit){userMoved=true;camera(hit.group.ids.map(id=>positions.get(id)));}});
-$('fit').onclick=()=>{userMoved=true;fit();};$('zoom-in').onclick=()=>{userMoved=true;selection.transition().duration(reducedMotion.matches?0:250).call(zoom.scaleBy,1.4);};$('zoom-out').onclick=()=>{userMoved=true;selection.transition().duration(reducedMotion.matches?0:250).call(zoom.scaleBy,1/1.4);};
+$('fit').onclick=()=>{userMoved=true;fit(true,true);};$('zoom-in').onclick=()=>{userMoved=true;selection.transition().duration(reducedMotion.matches?0:250).call(zoom.scaleBy,1.4);};$('zoom-out').onclick=()=>{userMoved=true;selection.transition().duration(reducedMotion.matches?0:250).call(zoom.scaleBy,1/1.4);};
 $('graph-labels').onclick=()=>{labelsExpanded=!labelsExpanded;$('graph-labels').setAttribute('aria-pressed',String(labelsExpanded));draw();};
 $('graph-motion').onclick=()=>{motionEnabled=!motionEnabled;$('graph-motion').setAttribute('aria-pressed',String(motionEnabled));if(motionEnabled)scheduleFrame();else{cancelAnimationFrame(framePending);framePending=0;draw();}};
 $('graph-overview').onclick=()=>selectProfile(null);$('graph-depth').onclick=()=>{focusDepth=focusDepth===1?2:1;rebuildFocus();focusOnSelection();};
@@ -325,7 +365,8 @@ $('threshold').oninput=e=>{state.threshold=+e.target.value/100;$('threshold-valu
 let searchTimer;$('search').oninput=e=>{clearTimeout(searchTimer);searchTimer=setTimeout(()=>{state.query=e.target.value.trim();state.selected=null;firstFit=true;userMoved=false;render();},200);};
 $('category').onchange=e=>{state.category=e.target.value;state.selected=null;firstFit=true;userMoved=false;render();};
 $('reset').onclick=()=>{state.query='';state.category='';state.selected=null;$('search').value='';$('category').value='';userMoved=false;firstFit=true;graphKey='';render();updateUrl();};
-$('close-profile').onclick=()=>selectProfile(null);$('more-profiles').onclick=()=>{state.rankLimit+=20;renderProfiles();};$('more-posts').onclick=()=>{state.feedLimit+=12;renderFeed();};$('clear-topic').onclick=()=>{state.topic=null;renderTopics();renderFeed();};
+$('close-profile').onclick=()=>selectProfile(null);$('more-profiles').onclick=()=>{state.rankLimit+=20;renderProfiles();};$('feed').onclick=e=>{const b=e.target.closest('[data-focus]');if(!b)return;const id=b.dataset.focus;if(!network.nodes.some(n=>n.id===id)){toast('@'+id+' non è nella mappa con i filtri attuali.');return;}selectProfile(id);document.querySelector('.network-panel').scrollIntoView({behavior:reducedMotion.matches?'auto':'smooth',block:'start'});};
+$('more-posts').onclick=()=>{state.feedLimit+=12;renderFeed();};$('clear-topic').onclick=()=>{state.topic=null;renderTopics();renderFeed();};
 for(const id of ['method-open','method-footer'])$(id).onclick=()=>$('method').showModal();
 $('method').onclick=e=>{if(e.target===$('method')){const r=$('method').getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)$('method').close();}};
 function toast(msg){$('toast').textContent=msg;$('toast').hidden=false;setTimeout(()=>$('toast').hidden=true,5000);}
