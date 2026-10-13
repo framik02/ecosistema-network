@@ -182,3 +182,19 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{ou
 #updates-dialog p,#updates-dialog li{font-size:12px;line-height:1.7;color:var(--muted);overflow-wrap:anywhere}#updates-dialog h3{font-size:13px;margin:24px 0 8px;color:var(--green)}#updates-dialog ul{padding-left:20px}.updates-footer{border-top:1px solid var(--line);margin-top:20px;padding-top:12px}.updates-footer button{background:var(--green);color:white;padding:11px 16px;font-size:11px}.updates-footer p{font-size:10px!important}
 @media(max-width:900px){.network-layout>.profile-panel{top:auto}.featured-profiles{padding:12px 16px}}
 @media(max-width:720px){.topbar{height:80px}.page-heading h1{font-size:48px}.page-heading{padding:16px 0}.page-heading p{font-size:12px}.metrics{padding:0}.metric,.metric:first-child{min-height:96px;padding:12px}.metric strong{font-size:30px}.network-tools .overview-button{font-size:9px;padding:9px;order:3}.updates-button{font-size:9px;padding:8px;order:3}.featured-profiles button{font-size:10px}.featured-label{min-width:66px}.featured-profiles{gap:6px}#updates-dialog{padding:24px 20px}}
+/* Compact collaboration cards: names lead back to the map. */
+.network-panel #graph-count{display:none}
+.overview-button[hidden]{display:none}
+.post-head{margin-bottom:12px}
+.post-head .avatar{border-width:2px}
+button.post-author{background:none;border:0;padding:0;color:var(--ink);font:650 13px Archivo,sans-serif;cursor:pointer;max-width:100%;text-align:left}
+button.post-author:hover{color:var(--green);text-decoration:underline}
+.post-partners{display:flex;flex-wrap:wrap;align-items:center;gap:6px;min-height:0;padding-top:11px}
+.post-partners>span{font-size:10px;color:var(--muted);margin-right:2px}
+.post-partners button{display:inline-flex;align-items:center;gap:6px;max-width:100%;border:1px solid #302c7522;background:#f4f3f8;color:var(--green);padding:5px 8px;font:500 11px Archivo,sans-serif;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.post-partners button:hover{border-color:var(--green);background:white}
+.post-partners i{width:7px;height:7px;flex:none}
+.collaborations-only .post-card{padding:17px 19px;display:flex;flex-direction:column}
+.collaborations-only .post-bottom{margin-top:auto;padding-top:13px}
+@media(max-width:720px){.network-panel .panel-heading{display:flex;flex-wrap:wrap;align-items:center;gap:8px}.network-panel .panel-heading>div:first-child{flex:1 1 100%}.network-panel .panel-heading>button{order:1!important;margin:0!important;min-height:36px}.network-panel .panel-heading .immersive-button{order:2!important;margin-left:auto!important}.collaborations-only .post-card{padding:15px}}
+@media(min-width:721px){.network-panel .panel-heading .panel-toggle{margin-left:auto}}
