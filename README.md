@@ -13,6 +13,8 @@ La condivisione conserva la vista, il periodo e il profilo selezionato. I filtri
 
 ## Identità e mappa interattiva
 
+Il sito pubblico usa l’impaginazione di ecosistemapolitico.it: mappa a tutto schermo su foglio quadrettato, pannello Vista a sinistra (periodo, profili, legami, interruttori, numeri) e pannello a schede a destra (Sintesi, Gruppi, Ponti, Classifica, Post) che diventa la scheda del profilo selezionato. Nodi quadrati pieni nei colori di categoria di quella mappa, nomi in carattere monospaziato. La disposizione calcola prima ogni gruppo (scheletro dei profili con più legami e ventagli dei collaboratori con un solo legame), poi la posizione dei gruppi secondo l’ingombro reale, poi l’insieme. «Ponti» conta i profili che resterebbero isolati dal proprio gruppo senza quel profilo. La versione locale completa mantiene l’impaginazione a pagina.
+
 Identità Liberi Network: marchio originale, titoli Bebas Neue, testi Archivo e blu profondo `#302C75` su fondo caldo. Composizione ispirata alla pagina [Chi siamo](https://dapper-youtiao-da3032.netlify.app/chi-siamo): navigazione sospesa, titoli ampi, schede con bordi netti e collegamenti curvi. Il logo conserva il gradiente originale. Font e logo incorporati: nessuna richiesta a servizi esterni per caricarli. Il grafo usa archi curvi, focus sui vicini di un profilo, trascinamento dei nodi e vista immersiva. Le animazioni si disattivano con la preferenza di movimento ridotto e si sospendono fuori schermo. I colori distinguono le categorie osservate; non indicano un giudizio sui profili.
 
 ## Esplorazione della rete
